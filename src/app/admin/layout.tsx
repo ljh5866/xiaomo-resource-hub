@@ -15,6 +15,7 @@ export const metadata: Metadata = {
 const NAV = [
   { href: "/admin", label: "概览" },
   { href: "/admin/resources", label: "资源" },
+  { href: "/admin/taxonomy", label: "分类标签" },
   { href: "/admin/submissions", label: "投稿" },
   { href: "/admin/reports", label: "举报" },
   { href: "/admin/imports", label: "批量导入" },

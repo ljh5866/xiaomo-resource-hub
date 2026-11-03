@@ -1,4 +1,5 @@
 import { all } from "@/db/client";
+import { RecheckButton } from "@/components/admin/recheck-button";
 import { StatusDot, type LinkStatus } from "@/components/ui/status-dot";
 import { providerOf } from "@/lib/constants";
 import { formatDate } from "@/lib/utils";
@@ -50,14 +51,17 @@ export default async function LinksPage() {
         <div>
           <h1 className="font-serif text-[20px] font-bold text-ink">链接巡检</h1>
           <p className="mt-1 text-[13px] text-muted">
-            失效的排在最前。命令行跑 <code className="font-mono text-ink">pnpm links:check</code>{" "}
-            做一轮检测（连续失败 3 次才判死）。
+            失效的排在最前。点「复测」只测待校验/失效的链接；命令行{" "}
+            <code className="font-mono text-ink">pnpm links:check</code> 可跑全量（连续失败 3 次才判死）。
           </p>
         </div>
-        <div className="flex gap-2 font-mono text-[11px]">
-          <span className="border border-ok/40 px-2 py-1 text-ok">有效 {s.ok}</span>
-          <span className="border border-danger/40 px-2 py-1 text-danger">失效 {s.bad}</span>
-          <span className="border border-line px-2 py-1 text-dim">待校验 {s.unknown}</span>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex gap-2 font-mono text-[11px]">
+            <span className="border border-ok/40 px-2 py-1 text-ok">有效 {s.ok}</span>
+            <span className="border border-danger/40 px-2 py-1 text-danger">失效 {s.bad}</span>
+            <span className="border border-line px-2 py-1 text-dim">待校验 {s.unknown}</span>
+          </div>
+          <RecheckButton limit={20} />
         </div>
       </div>
 

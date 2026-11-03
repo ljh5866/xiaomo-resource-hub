@@ -41,6 +41,7 @@ node scripts/test-pagination.mjs # 分页与「加载更多」
 node scripts/test-report.mjs # 举报链路（游客提交 → 后台处理）
 node scripts/test-submit.mjs # 投稿链路（提交 → 采纳生成草稿）
 node scripts/test-seo.mjs    # 结构化数据（JSON-LD 字段校验）
+node scripts/test-admin-tools.mjs # 后台三件套（搜索分页 / 分类标签 / 复测）
 node scripts/perf.mjs        # 性能预算（LCP/CLS/TTFB）
 ```
 
@@ -77,6 +78,7 @@ node scripts/perf.mjs        # 性能预算（LCP/CLS/TTFB）
 | [docs/13-举报与后台防护.md](docs/13-举报与后台防护.md) | **举报链路、后台写操作的服务端鉴权（补上 server action 的洞）** |
 | [docs/14-投稿与自动降权.md](docs/14-投稿与自动降权.md) | **投稿入口（采纳生成草稿）、举报满 3 次自动标失效** |
 | [docs/15-结构化数据.md](docs/15-结构化数据.md) | **JSON-LD 四类齐备、kind→schema 类型映射、新旧两份打架的坑** |
+| [docs/16-后台三件套.md](docs/16-后台三件套.md) | **资源搜索分页 / 分类标签管理 / 巡检一键复测** |
 | [DESIGN.md](DESIGN.md) | 视觉唯一真源：墨绿黑 + 黄铜 + 宋体 + 直角 |
 
 ## 技术栈（实际落地版）

@@ -141,6 +141,9 @@ jobs:
       - name: 结构化数据（JSON-LD）
         run: node scripts/test-seo.mjs
 
+      - name: 后台三件套（搜索分页 / 分类标签 / 复测）
+        run: node scripts/test-admin-tools.mjs
+
       - name: 性能预算（LCP/CLS/TTFB）
         run: node scripts/perf.mjs
 
