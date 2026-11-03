@@ -138,6 +138,9 @@ jobs:
       - name: 投稿链路
         run: node scripts/test-submit.mjs
 
+      - name: 结构化数据（JSON-LD）
+        run: node scripts/test-seo.mjs
+
       - name: 性能预算（LCP/CLS/TTFB）
         run: node scripts/perf.mjs
 

@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ResourceCard } from "@/components/resource/resource-card";
+import { JsonLd } from "@/components/seo/json-ld";
 import { listResourcesByTag } from "@/lib/queries";
+import { breadcrumbJsonLd, collectionJsonLd } from "@/lib/seo";
 
 export const revalidate = 3600;
 
@@ -35,6 +37,21 @@ export default async function TagPage({
 
   return (
     <div className="container-page py-10">
+      <JsonLd
+        data={[
+          collectionJsonLd({
+            name: `#${tag}`,
+            description: `标签「${tag}」下的全部资源。`,
+            path: `/t/${tag}`,
+            items: items.map((i) => ({ title: i.title, path: `/r/${i.slug}` })),
+          }),
+          breadcrumbJsonLd([
+            { name: "首页", path: "/" },
+            { name: `#${tag}`, path: `/t/${tag}` },
+          ]),
+        ]}
+      />
+
       <nav aria-label="面包屑" className="text-[12px] text-dim">
         <Link href="/" className="hover:text-accent">首页</Link>
         <span className="mx-2">/</span>

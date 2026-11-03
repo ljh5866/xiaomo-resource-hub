@@ -4,6 +4,8 @@ import { Suspense } from "react";
 import { site } from "@/content/site";
 import { SearchField } from "@/components/layout/search-field";
 import { CategoryIcon } from "@/components/layout/category-icon";
+import { JsonLd } from "@/components/seo/json-ld";
+import { websiteJsonLd } from "@/lib/seo";
 import { ResourceCard } from "@/components/resource/resource-card";
 import { Chip } from "@/components/ui/chip";
 import { getSiteStats, listCategories, listResources, listTags } from "@/lib/queries";
@@ -24,6 +26,8 @@ export default async function HomePage() {
 
   return (
     <>
+      <JsonLd data={websiteJsonLd()} />
+
       {/* ───────────── HERO：全站唯一的黄铜焦点 ───────────── */}
       <section className="border-b border-line">
         <div className="container-page py-14 lg:py-20">

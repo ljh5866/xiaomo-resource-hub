@@ -5,6 +5,8 @@ import { ChevronRight, Download, Tag as TagIcon } from "lucide-react";
 import { LinkRow } from "@/components/resource/link-row";
 import { FavoriteButton } from "@/components/resource/favorite-button";
 import { ReportDialog } from "@/components/resource/report-dialog";
+import { JsonLd } from "@/components/seo/json-ld";
+import { breadcrumbJsonLd, resourceJsonLd } from "@/lib/seo";
 import { ResourceCard } from "@/components/resource/resource-card";
 import { StatusDot, type LinkStatus } from "@/components/ui/status-dot";
 import { Chip } from "@/components/ui/chip";
@@ -73,22 +75,31 @@ export default async function ResourcePage({
     : await listResources({ categorySlug: category.slug, limit: 4 });
   const relatedFiltered = related.filter((r) => r.slug !== resource.slug).slice(0, 3);
 
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    name: resource.title,
-    description: resource.summary ?? undefined,
-    applicationCategory: KINDS[resource.kind] ?? "其他",
-    operatingSystem: platforms.map(platformOf).join(", ") || undefined,
-    softwareVersion: resource.version ?? undefined,
-    dateModified: formatDate(resource.updatedAt),
-  };
-
   return (
     <article className="container-page py-8 lg:py-12">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      <JsonLd
+        data={[
+          resourceJsonLd({
+            code: resource.code,
+            title: resource.title,
+            summary: resource.summary,
+            kind: resource.kind,
+            platforms,
+            slug: resource.slug,
+            coverUrl: resource.coverUrl,
+            licenseLabel: resource.licenseLabel,
+            version: resource.version,
+            sizeLabel: resource.sizeLabel,
+            publishedAt: resource.publishedAt,
+            updatedAt: resource.updatedAt,
+            categoryName: category.name,
+          }),
+          breadcrumbJsonLd([
+            { name: "首页", path: "/" },
+            { name: category.name, path: `/c/${category.slug}` },
+            { name: resource.title, path: `/r/${resource.slug}` },
+          ]),
+        ]}
       />
 
       {/* 面包屑 */}

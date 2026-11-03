@@ -4,6 +4,8 @@ import { Suspense } from "react";
 import { CategoryRail } from "@/components/layout/category-rail";
 import { CategoryChips, platformKeysOf } from "@/components/resource/category-chips";
 import { CategoryFilter } from "@/components/resource/category-filter";
+import { JsonLd } from "@/components/seo/json-ld";
+import { breadcrumbJsonLd, collectionJsonLd } from "@/lib/seo";
 import { CardGridSkeleton } from "@/components/ui/skeleton";
 import { listCategories, listResources, countResources } from "@/lib/queries";
 
@@ -49,6 +51,21 @@ export default async function CategoryPage({
 
   return (
     <div className="container-page py-8 lg:py-12">
+      <JsonLd
+        data={[
+          collectionJsonLd({
+            name: current.name,
+            description: current.description,
+            path: `/c/${category}`,
+            items: items.map((i) => ({ title: i.title, path: `/r/${i.slug}` })),
+          }),
+          breadcrumbJsonLd([
+            { name: "首页", path: "/" },
+            { name: current.name, path: `/c/${category}` },
+          ]),
+        ]}
+      />
+
       <div className="grid grid-cols-1 gap-10 lg:grid-cols-[200px_minmax(0,1fr)]">
         <CategoryRail
           items={categories.map((c) => ({ slug: c.slug, name: c.name, count: c.count }))}
