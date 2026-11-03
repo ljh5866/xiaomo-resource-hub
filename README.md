@@ -51,6 +51,7 @@ node scripts/perf.mjs        # 性能预算（LCP/CLS/TTFB）
 ```
 
 部署见 [docs/09-部署与运维.md](docs/09-部署与运维.md)（含 `deploy/` 下的 Caddyfile 与 systemd 单元）。
+阿里云香港机型见 [docs/20-阿里云香港部署.md](docs/20-阿里云香港部署.md)，服务器初始化用 `deploy/bootstrap-ubuntu.sh`。
 
 ## CI
 
@@ -87,6 +88,7 @@ node scripts/perf.mjs        # 性能预算（LCP/CLS/TTFB）
 | [docs/17-内容流水线.md](docs/17-内容流水线.md) | **链接清单 → CSV → 导入**、CSV 纯函数与单测 |
 | [docs/18-清空测试数据.md](docs/18-清空测试数据.md) | **清空内容（保留分类/标签/账号）、空库页面表现、哪些 e2e 会红** |
 | [docs/19-分享图与部署演练.md](docs/19-分享图与部署演练.md) | **OG 分享图（sharp+SVG，中文靠系统字体）、部署演练脚本** |
+| [docs/20-阿里云香港部署.md](docs/20-阿里云香港部署.md) | **香港轻量从下单到上线**、初始化脚本、域名与 HTTPS、迁移 |
 | [DESIGN.md](DESIGN.md) | 视觉唯一真源：墨绿黑 + 黄铜 + 宋体 + 直角 |
 
 ## 技术栈（实际落地版）
