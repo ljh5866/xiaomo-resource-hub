@@ -16,6 +16,7 @@
     "user:revoke": "tsx src/scripts/revoke-user.ts",
     "seed:bulk": "tsx src/scripts/seed-bulk.ts",
     "import:links": "tsx src/scripts/make-csv.ts",
+    "db:clean:content": "tsx src/scripts/clean-content.ts",
     "db:seed": "tsx src/db/seed.ts",
     "db:reindex": "tsx src/scripts/reindex.ts",
     "links:check": "tsx src/scripts/check-links.ts",

@@ -31,6 +31,7 @@ pnpm covers:gc     # 回收孤儿封面（--force 才真删）
 pnpm backup        # 数据库快照 + 封面打包到 data/backups
 pnpm seed:bulk     # 压测数据（--count 200 / --clean）
 pnpm import:links  # 从链接清单生成导入 CSV（links.txt --cat template）
+pnpm db:clean:content  # 清空内容（保留分类/标签/账号；--dry 先看）
 pnpm test          # 单元测试（node:test，20 条）
 pnpm build && pnpm start
 node scripts/shot.mjs        # 视口截图与溢出检测
@@ -82,6 +83,7 @@ node scripts/perf.mjs        # 性能预算（LCP/CLS/TTFB）
 | [docs/15-结构化数据.md](docs/15-结构化数据.md) | **JSON-LD 四类齐备、kind→schema 类型映射、新旧两份打架的坑** |
 | [docs/16-后台三件套.md](docs/16-后台三件套.md) | **资源搜索分页 / 分类标签管理 / 巡检一键复测** |
 | [docs/17-内容流水线.md](docs/17-内容流水线.md) | **链接清单 → CSV → 导入**、CSV 纯函数与单测 |
+| [docs/18-清空测试数据.md](docs/18-清空测试数据.md) | **清空内容（保留分类/标签/账号）、空库页面表现、哪些 e2e 会红** |
 | [DESIGN.md](DESIGN.md) | 视觉唯一真源：墨绿黑 + 黄铜 + 宋体 + 直角 |
 
 ## 技术栈（实际落地版）

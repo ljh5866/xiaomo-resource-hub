@@ -142,8 +142,10 @@ export default async function HomePage() {
         />
         {latest.length === 0 ? (
           <EmptyBlock
-            title="还没有已发布的资源"
-            desc="在 /admin 新建资源，状态设为 published 即可出现在这里。"
+            title="还在陆续上架"
+            desc="资源按批次整理入库。你有好用的东西，欢迎投稿推荐。"
+            href="/submit"
+            hrefLabel="去投稿"
           />
         ) : (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -242,11 +244,29 @@ function Stat({
   );
 }
 
-function EmptyBlock({ title, desc }: { title: string; desc: string }) {
+function EmptyBlock({
+  title,
+  desc,
+  href,
+  hrefLabel,
+}: {
+  title: string;
+  desc: string;
+  href?: string;
+  hrefLabel?: string;
+}) {
   return (
     <div className="border border-dashed border-line bg-surface/40 p-10 text-center">
       <p className="font-serif text-[18px] font-semibold text-ink">{title}</p>
       <p className="mx-auto mt-2 max-w-md text-[13px] leading-relaxed text-muted">{desc}</p>
+      {href && hrefLabel && (
+        <Link
+          href={href}
+          className="mt-4 inline-flex min-h-10 items-center border border-line-strong px-4 text-[13px] text-ink transition-colors hover:border-accent hover:text-accent"
+        >
+          {hrefLabel}
+        </Link>
+      )}
     </div>
   );
 }
