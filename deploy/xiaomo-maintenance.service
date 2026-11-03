@@ -1,0 +1,12 @@
+[Unit]
+Description=Xiaomo daily maintenance (link check + backup + cover gc)
+
+[Service]
+Type=oneshot
+User=www-data
+WorkingDirectory=/var/www/xiaomo
+EnvironmentFile=/var/www/xiaomo/.env
+# 先巡检链接，再备份，最后清孤儿图
+ExecStart=/usr/bin/pnpm links:check
+ExecStartPost=/usr/bin/node scripts/backup.mjs --keep 14
+ExecStartPost=/usr/bin/pnpm covers:gc --force

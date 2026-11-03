@@ -1,0 +1,158 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  AUTH_SECRET: ci-only-secret-not-for-production-000000
+  SITE_URL: http://127.0.0.1:3100
+  DATABASE_URL: ./data/app.db
+
+jobs:
+  verify:
+    name: 构建 / 类型 / 单测 / 冒烟
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 类型检查
+        run: pnpm typecheck
+
+      - name: 单元测试
+        run: pnpm test
+
+      - name: 建库 + 种子 + 封面
+        run: |
+          mkdir -p data
+          pnpm db:migrate
+          pnpm db:seed
+          pnpm covers:gen
+
+      - name: 创建管理员
+        run: pnpm user:add admin@xiaomo.local xiaomo2026 --admin
+
+      - name: 构建
+        run: pnpm build
+
+      - name: 启动服务并冒烟
+        run: |
+          pnpm start > server.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3100/api/health > /dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          echo "--- health ---"
+          curl -fsS http://127.0.0.1:3100/api/health
+          echo ""
+          echo "--- routes ---"
+          fail=0
+          for path in / /c/template /r/excel-dashboard-pack "/search?q=%E7%9C%8B%E6%9D%BF" /updates /login /styleguide /sitemap.xml /rss.xml; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:3100${path}")
+            echo "${path} -> ${code}"
+            [ "$code" = "200" ] || fail=1
+          done
+          # 后台必须拦未登录
+          admin_code=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3100/admin)
+          echo "/admin -> ${admin_code} (需 307)"
+          [ "$admin_code" = "307" ] || fail=1
+          if [ "$fail" = "1" ]; then echo "烟测失败"; cat server.log; exit 1; fi
+
+      - name: 失败时上传日志
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-log
+          path: server.log
+
+  e2e:
+    name: 浏览器端到端
+    runs-on: ubuntu-latest
+    needs: verify
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: 安装 chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: 准备数据
+        run: |
+          mkdir -p data
+          pnpm db:migrate
+          pnpm db:seed
+          pnpm covers:gen
+          pnpm user:add admin@xiaomo.local xiaomo2026 --admin
+          # 分页验收需要足够的条目（24 条不够撑出第二页）
+          pnpm seed:bulk --count 60
+
+      - name: 构建并启动
+        run: |
+          pnpm build
+          pnpm start > server.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3100/api/health > /dev/null 2>&1; then break; fi
+            sleep 1
+          done
+
+      - name: 鉴权链路
+        run: node scripts/test-auth.mjs
+
+      - name: 会话吊销
+        run: node scripts/test-revoke.mjs
+
+      - name: 分页与加载更多
+        run: node scripts/test-pagination.mjs
+
+      - name: 举报链路
+        run: node scripts/test-report.mjs
+
+      - name: 投稿链路
+        run: node scripts/test-submit.mjs
+
+      - name: 性能预算（LCP/CLS/TTFB）
+        run: node scripts/perf.mjs
+
+      - name: 防护链路（会锁账号，放最后）
+        run: node scripts/test-guards.mjs
+
+      - name: 视口与溢出
+        run: node scripts/shot.mjs
+
+      - name: 上传截图与日志
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-artifacts
+          path: |
+            .shots/
+            server.log
+          if-no-files-found: ignore

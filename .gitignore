@@ -1,0 +1,20 @@
+node_modules/
+.next/
+out/
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+data/uploads/
+data/backups/
+.env
+.env.local
+*.log
+.DS_Store
+.shots/
+next-env.d.ts
+tsconfig.tsbuildinfo
+
+# DSH 技能缓存（工具产物，不属于项目）
+skills/
+.skills-vendor/

@@ -1,0 +1,42 @@
+# 小莫资源网 —— Caddy 反代配置
+# 用法：把 example.com 换成你的域名；Caddy 自动申请 HTTPS 证书。
+
+{
+	# 生产环境建议开启访问日志轮转
+	log default {
+		output file /var/log/caddy/xiaomo-access.log {
+			roll_size 20mb
+			roll_keep 5
+		}
+		format console
+	}
+}
+
+example.com {
+	encode zstd gzip
+
+	# 静态资源：长缓存（文件名带哈希）
+	@assets path /_next/static/* /files/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	# 安全响应头
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options SAMEORIGIN
+		Permissions-Policy "geolocation=(), microphone=(), camera=()"
+		-Server
+	}
+
+	# 反代 Next.js
+	reverse_proxy 127.0.0.1:3100 {
+		header_up X-Real-IP {remote_host}
+		health_uri /api/health
+		health_interval 30s
+		health_timeout 5s
+	}
+
+	# 备份目录与数据库不对外
+	@private path /data/* /.env*
+	respond @private 404
+}

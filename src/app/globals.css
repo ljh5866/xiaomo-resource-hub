@@ -1,0 +1,182 @@
+@import "tailwindcss";
+
+/* ==================================================================
+   小莫资源网 · 设计 token（唯一真源见 /DESIGN.md）
+   默认深色「卡片目录柜」，.light 覆盖为浅色
+   ================================================================== */
+
+@custom-variant light (&:where(.light, .light *));
+
+:root {
+  --bg: #0b1310;
+  --surface: #121c18;
+  --surface-2: #182620;
+  --line: #26362e;
+  --line-strong: #3a4d42;
+
+  --ink: #e8ede6;
+  --muted: #9baa9f;
+  --dim: #6b7a70;
+
+  --accent: #d3a94f;
+  --accent-strong: #e8c36b;
+  --on-accent: #1a1408;
+
+  --ok: #57a773;
+  --danger: #c4543f;
+  --info: #5b8db8;
+
+  --paper-shadow: 0 1px 0 rgb(0 0 0 / 0.4);
+}
+
+.light {
+  --bg: #ecede6;
+  --surface: #ffffff;
+  --surface-2: #f6f7f2;
+  --line: #d8dad0;
+  --line-strong: #b9bdb0;
+
+  --ink: #14201a;
+  --muted: #55635b;
+  --dim: #8b968e;
+
+  --accent: #8a6a1f;
+  --accent-strong: #6f5416;
+  --on-accent: #fbf8ef;
+
+  --ok: #2f7d4f;
+  --danger: #a63a28;
+  --info: #37618c;
+
+  --paper-shadow: 0 1px 0 rgb(20 32 26 / 0.08);
+}
+
+@theme inline {
+  --color-canvas: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-dim: var(--dim);
+
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-on-accent: var(--on-accent);
+
+  --color-ok: var(--ok);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+
+  --font-sans:
+    "Noto Sans SC", "Source Han Sans SC", "PingFang SC", "Microsoft YaHei",
+    system-ui, sans-serif;
+  --font-serif:
+    "Noto Serif SC", "Source Han Serif SC", "Songti SC", SimSun, Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+
+  --radius-none: 0px;
+}
+
+/* ==================================================================
+   Base
+   ================================================================== */
+@layer base {
+  * {
+    border-color: var(--line);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* 焦点永远可见 —— DESIGN.md §9 红线 */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--accent) 34%, transparent);
+    color: var(--ink);
+  }
+
+  ::placeholder {
+    color: var(--dim);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* ==================================================================
+   Utilities
+   ================================================================== */
+@utility container-page {
+  width: 100%;
+  max-width: 1280px;
+  margin-inline: auto;
+  padding-inline: 24px;
+
+  @media (min-width: 1024px) {
+    padding-inline: 40px;
+  }
+}
+
+@utility hairline-t {
+  border-top: 1px solid var(--line);
+}
+
+@utility hairline-b {
+  border-bottom: 1px solid var(--line);
+}
+
+@utility animate-index-in {
+  animation: index-in 260ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes index-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
