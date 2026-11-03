@@ -325,7 +325,8 @@ export async function importCsv(text: string): Promise<ActionResult & { inserted
   const ts = nowSec();
 
   for (const [i, line] of lines.entries()) {
-    if (i === 0 && line.toLowerCase().startsWith("title")) continue;
+    // 表头：以 title 或「标题」开头都跳过
+    if (i === 0 && /^(title|标题)/i.test(line)) continue;
 
     const cells = line.split(",").map((c) => c.trim());
     if (cells.length < 5) {

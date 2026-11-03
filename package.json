@@ -15,13 +15,14 @@
     "user:add": "tsx src/scripts/add-user.ts",
     "user:revoke": "tsx src/scripts/revoke-user.ts",
     "seed:bulk": "tsx src/scripts/seed-bulk.ts",
+    "import:links": "tsx src/scripts/make-csv.ts",
     "db:seed": "tsx src/db/seed.ts",
     "db:reindex": "tsx src/scripts/reindex.ts",
     "links:check": "tsx src/scripts/check-links.ts",
     "covers:gen": "tsx src/scripts/gen-covers.ts",
     "covers:gc": "tsx src/scripts/covers-gc.ts",
     "backup": "node scripts/backup.mjs",
-    "test": "node --import tsx --test tests/tokenize.test.ts tests/extract-code.test.ts tests/utils.test.ts tests/password.test.ts tests/seo.test.ts",
+    "test": "node --import tsx --test tests/tokenize.test.ts tests/extract-code.test.ts tests/utils.test.ts tests/password.test.ts tests/seo.test.ts tests/csv.test.ts",
     "db:reset": "node -e \"require('node:fs').rmSync('./data/app.db',{force:true})\" && pnpm db:push && pnpm db:seed"
   },
   "dependencies": {

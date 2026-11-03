@@ -30,6 +30,7 @@ pnpm covers:gen    # 为种子资源生成品牌封面
 pnpm covers:gc     # 回收孤儿封面（--force 才真删）
 pnpm backup        # 数据库快照 + 封面打包到 data/backups
 pnpm seed:bulk     # 压测数据（--count 200 / --clean）
+pnpm import:links  # 从链接清单生成导入 CSV（links.txt --cat template）
 pnpm test          # 单元测试（node:test，20 条）
 pnpm build && pnpm start
 node scripts/shot.mjs        # 视口截图与溢出检测
@@ -42,6 +43,7 @@ node scripts/test-report.mjs # 举报链路（游客提交 → 后台处理）
 node scripts/test-submit.mjs # 投稿链路（提交 → 采纳生成草稿）
 node scripts/test-seo.mjs    # 结构化数据（JSON-LD 字段校验）
 node scripts/test-admin-tools.mjs # 后台三件套（搜索分页 / 分类标签 / 复测）
+node scripts/test-import.mjs # 内容流水线（链接 → CSV → 导入）
 node scripts/perf.mjs        # 性能预算（LCP/CLS/TTFB）
 ```
 
@@ -79,6 +81,7 @@ node scripts/perf.mjs        # 性能预算（LCP/CLS/TTFB）
 | [docs/14-投稿与自动降权.md](docs/14-投稿与自动降权.md) | **投稿入口（采纳生成草稿）、举报满 3 次自动标失效** |
 | [docs/15-结构化数据.md](docs/15-结构化数据.md) | **JSON-LD 四类齐备、kind→schema 类型映射、新旧两份打架的坑** |
 | [docs/16-后台三件套.md](docs/16-后台三件套.md) | **资源搜索分页 / 分类标签管理 / 巡检一键复测** |
+| [docs/17-内容流水线.md](docs/17-内容流水线.md) | **链接清单 → CSV → 导入**、CSV 纯函数与单测 |
 | [DESIGN.md](DESIGN.md) | 视觉唯一真源：墨绿黑 + 黄铜 + 宋体 + 直角 |
 
 ## 技术栈（实际落地版）
