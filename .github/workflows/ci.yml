@@ -147,6 +147,12 @@ jobs:
       - name: 内容流水线（链接 → CSV → 导入）
         run: node scripts/test-import.mjs
 
+      - name: 分享图（OG）
+        run: node scripts/test-og.mjs
+
+      - name: 部署物料与备份恢复演练
+        run: node scripts/drill-deploy.mjs
+
       - name: 性能预算（LCP/CLS/TTFB）
         run: node scripts/perf.mjs
 

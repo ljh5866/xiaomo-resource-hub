@@ -45,6 +45,8 @@ node scripts/test-submit.mjs # 投稿链路（提交 → 采纳生成草稿）
 node scripts/test-seo.mjs    # 结构化数据（JSON-LD 字段校验）
 node scripts/test-admin-tools.mjs # 后台三件套（搜索分页 / 分类标签 / 复测）
 node scripts/test-import.mjs # 内容流水线（链接 → CSV → 导入）
+node scripts/test-og.mjs     # 分享图（1200×630 PNG + og:image meta）
+node scripts/drill-deploy.mjs # 部署演练（物料 / 环境 / 备份恢复 / 字体）
 node scripts/perf.mjs        # 性能预算（LCP/CLS/TTFB）
 ```
 
@@ -84,6 +86,7 @@ node scripts/perf.mjs        # 性能预算（LCP/CLS/TTFB）
 | [docs/16-后台三件套.md](docs/16-后台三件套.md) | **资源搜索分页 / 分类标签管理 / 巡检一键复测** |
 | [docs/17-内容流水线.md](docs/17-内容流水线.md) | **链接清单 → CSV → 导入**、CSV 纯函数与单测 |
 | [docs/18-清空测试数据.md](docs/18-清空测试数据.md) | **清空内容（保留分类/标签/账号）、空库页面表现、哪些 e2e 会红** |
+| [docs/19-分享图与部署演练.md](docs/19-分享图与部署演练.md) | **OG 分享图（sharp+SVG，中文靠系统字体）、部署演练脚本** |
 | [DESIGN.md](DESIGN.md) | 视觉唯一真源：墨绿黑 + 黄铜 + 宋体 + 直角 |
 
 ## 技术栈（实际落地版）

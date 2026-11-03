@@ -29,6 +29,18 @@ export async function generateMetadata({
     title: meta.name,
     description: meta.description ?? `${meta.name} 分类下的全部资源，共 ${meta.count} 项。`,
     alternates: { canonical: `/c/${meta.slug}` },
+    openGraph: {
+      title: `${meta.name} · 小莫资源网`,
+      description: meta.description ?? undefined,
+      images: [
+        {
+          url: `/api/og?title=${encodeURIComponent(meta.name)}&sub=${encodeURIComponent(meta.description ?? "")}&tag=${encodeURIComponent(`分类 · 共 ${meta.count} 项`)}`,
+          width: 1200,
+          height: 630,
+          alt: meta.name,
+        },
+      ],
+    },
   };
 }
 

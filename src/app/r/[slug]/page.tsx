@@ -37,15 +37,33 @@ export async function generateMetadata({
   const data = await getResourceBySlug(slug);
   if (!data) return { title: "资源不存在" };
 
-  const { resource } = data;
+  const { resource, category } = data;
   const title = resource.seoTitle ?? resource.title;
   const description = resource.seoDesc ?? resource.summary ?? undefined;
+
+  // 分享图：有封面用封面，没有就用程序生成的标题卡
+  const ogImage = resource.coverUrl
+    ? resource.coverUrl
+    : `/api/og?title=${encodeURIComponent(resource.title)}&sub=${encodeURIComponent(
+        resource.summary ?? category.name,
+      )}&tag=${encodeURIComponent(`${category.name} · ${resource.code}`)}`;
 
   return {
     title,
     description,
     alternates: { canonical: `/r/${resource.slug}` },
-    openGraph: { title, description, type: "article" },
+    openGraph: {
+      title,
+      description,
+      type: "article",
+      images: [{ url: ogImage, width: 1200, height: 630, alt: resource.title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImage],
+    },
   };
 }
 

@@ -24,6 +24,18 @@ export async function generateMetadata({
     title: `#${tag}`,
     description: `标签「${tag}」下的全部资源。`,
     alternates: { canonical: `/t/${tag}` },
+    openGraph: {
+      title: `#${tag} · 小莫资源网`,
+      description: `标签「${tag}」下的全部资源。`,
+      images: [
+        {
+          url: `/api/og?title=${encodeURIComponent(`#${tag}`)}&tag=${encodeURIComponent("标签聚合")}`,
+          width: 1200,
+          height: 630,
+          alt: tag,
+        },
+      ],
+    },
   };
 }
 

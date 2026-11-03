@@ -20,6 +20,22 @@ export const metadata: Metadata = {
     siteName: site.name,
     title: site.seo.title,
     description: site.seo.description,
+    images: [
+      {
+        url: `/api/og?title=${encodeURIComponent(site.name)}&sub=${encodeURIComponent("认真归档的好用资源 · 只做索引")}`,
+        width: 1200,
+        height: 630,
+        alt: site.name,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: site.seo.title,
+    description: site.seo.description,
+    images: [
+      `/api/og?title=${encodeURIComponent(site.name)}&sub=${encodeURIComponent("认真归档的好用资源 · 只做索引")}`,
+    ],
   },
   robots: { index: true, follow: true },
 };
