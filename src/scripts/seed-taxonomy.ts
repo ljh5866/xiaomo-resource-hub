@@ -1,70 +1,150 @@
 /**
- * 只铺"骨架"：7 个分类 + 18 个标签，不碰任何资源。
+ * 只铺"骨架"：分类 + 标签，不碰任何资源。
  *   pnpm db:seed:taxonomy
  *
- * 为什么需要它：迁移文件只建表，不插数据；`db:seed` 会连 24 条演示资源一起塞进去。
- * 上线到干净数据库时，分类是空的 → /c/template 直接 404。
+ * 为什么需要它：迁移文件只建表不插数据；`db:seed` 会连演示资源一起塞进去。
+ * 上线到干净数据库时，分类是空的 → /c/xxx 直接 404。
  *
- * 幂等：按 slug 冲突就跳过（INSERT OR IGNORE）。
+ * 幂等 + 会收敛：
+ *   - 表里已有的分类/标签：按 slug 保留（名称、图标、描述、排序会被更新成这里的值）
+ *   - 表里多出来、且没有任何资源的分类：删除
+ *   - 表里多出来、但还有资源的：改成前台隐藏（不删，避免误伤）
  */
 import { all, run } from "../db/client";
 
 const CATEGORIES: [slug: string, name: string, icon: string, description: string, order: number][] =
   [
-    ["software", "软件工具", "AppWindow", "效率工具、系统增强、开发辅助，按平台标注。", 1],
-    ["template", "模板文档", "LayoutTemplate", "Excel / PPT / Word / Notion 模板，开箱即用。", 2],
-    ["material", "设计素材", "Palette", "图片、视频、音频、工程文件，注明用途与授权。", 3],
-    ["course", "教程课程", "GraduationCap", "成体系的课程与实操教程，标注时长与难度。", 4],
-    ["font", "字体字库", "Type", "中英文字体与可变字体，商用授权单独注明。", 5],
-    ["icon", "图标插画", "Shapes", "图标库、插画包、UI 组件资源。", 6],
-    ["ebook", "电子书", "BookOpen", "技术书、行业报告、手册文档。", 7],
+    [
+      "software",
+      "软件工具",
+      "AppWindow",
+      "效率工具、系统增强、开发辅助，按平台标注，附版本与校验信息。",
+      1,
+    ],
+    [
+      "games",
+      "热门游戏",
+      "Gamepad2",
+      "近期热度高的单机与联机游戏，标注版本、语言与配置要求。",
+      2,
+    ],
+    [
+      "mods",
+      "游戏 MODS",
+      "Puzzle",
+      "画质、汉化、玩法扩展类 MOD，注明适配的游戏版本与安装方式。",
+      3,
+    ],
+    [
+      "opensource",
+      "GitHub 开源项目",
+      "Github",
+      "值得关注的开源项目与自建服务，附仓库地址与部署难度。",
+      4,
+    ],
   ];
 
 const TAGS: [slug: string, name: string][] = [
-  ["excel", "Excel"],
-  ["ppt", "PPT"],
-  ["notion", "Notion"],
-  ["design", "设计"],
-  ["video", "视频剪辑"],
-  ["audio", "音频"],
-  ["font", "字体"],
-  ["icon", "图标"],
-  ["productivity", "效率"],
-  ["dev", "开发"],
   ["windows", "Windows"],
   ["mac", "macOS"],
-  ["course", "课程"],
-  ["free", "免费"],
+  ["android", "Android"],
+  ["linux", "Linux"],
+  ["green", "绿色免安装"],
+  ["portable", "便携版"],
+  ["chinese", "汉化"],
+  ["crack", "破解补丁"],
+  ["mod", "MOD"],
+  ["game", "游戏"],
+  ["single", "单机"],
+  ["online", "联机"],
   ["opensource", "开源"],
-  ["report", "报告"],
-  ["ui", "UI 设计"],
-  ["template", "模板"],
+  ["github", "GitHub"],
+  ["selfhost", "自建服务"],
+  ["docker", "Docker"],
+  ["free", "免费"],
+  ["tool", "工具"],
 ];
 
+const wantedCats = new Set(CATEGORIES.map((c) => c[0]));
+const wantedTags = new Set(TAGS.map((t) => t[0]));
+
+/* ---------- 分类 ---------- */
 let catAdded = 0;
+let catUpdated = 0;
 for (const [slug, name, icon, description, sortOrder] of CATEGORIES) {
-  const before = all<{ n: number }>("SELECT COUNT(*) AS n FROM categories WHERE slug = ?", slug)[0]
+  const exists = all<{ n: number }>("SELECT COUNT(*) AS n FROM categories WHERE slug = ?", slug)[0]
     ?.n;
-  run(
-    "INSERT OR IGNORE INTO categories (slug, name, icon, description, sort_order, is_visible) VALUES (?, ?, ?, ?, ?, 1)",
-    slug,
-    name,
-    icon,
-    description,
-    sortOrder,
-  );
-  if (!before) catAdded += 1;
+
+  if (exists) {
+    run(
+      "UPDATE categories SET name = ?, icon = ?, description = ?, sort_order = ?, is_visible = 1 WHERE slug = ?",
+      name,
+      icon,
+      description,
+      sortOrder,
+      slug,
+    );
+    catUpdated += 1;
+  } else {
+    run(
+      "INSERT INTO categories (slug, name, icon, description, sort_order, is_visible) VALUES (?, ?, ?, ?, ?, 1)",
+      slug,
+      name,
+      icon,
+      description,
+      sortOrder,
+    );
+    catAdded += 1;
+  }
 }
 
+let catRemoved = 0;
+let catHidden = 0;
+for (const row of all<{ id: number; slug: string }>("SELECT id, slug FROM categories")) {
+  if (wantedCats.has(row.slug)) continue;
+
+  const used =
+    all<{ n: number }>("SELECT COUNT(*) AS n FROM resources WHERE category_id = ?", row.id)[0]?.n ??
+    0;
+
+  if (used === 0) {
+    run("DELETE FROM categories WHERE id = ?", row.id);
+    catRemoved += 1;
+  } else {
+    run("UPDATE categories SET is_visible = 0 WHERE id = ?", row.id);
+    catHidden += 1;
+  }
+}
+
+/* ---------- 标签 ---------- */
 let tagAdded = 0;
 for (const [slug, name] of TAGS) {
-  const before = all<{ n: number }>("SELECT COUNT(*) AS n FROM tags WHERE slug = ?", slug)[0]?.n;
-  run("INSERT OR IGNORE INTO tags (slug, name, use_count) VALUES (?, ?, 0)", slug, name);
-  if (!before) tagAdded += 1;
+  const exists = all<{ n: number }>("SELECT COUNT(*) AS n FROM tags WHERE slug = ?", slug)[0]?.n;
+  if (exists) {
+    run("UPDATE tags SET name = ? WHERE slug = ?", name, slug);
+  } else {
+    run("INSERT INTO tags (slug, name, use_count) VALUES (?, ?, 0)", slug, name);
+    tagAdded += 1;
+  }
+}
+
+let tagRemoved = 0;
+for (const row of all<{ id: number; slug: string }>("SELECT id, slug FROM tags")) {
+  if (wantedTags.has(row.slug)) continue;
+  const used =
+    all<{ n: number }>("SELECT COUNT(*) AS n FROM resource_tags WHERE tag_id = ?", row.id)[0]?.n ??
+    0;
+  if (used === 0) {
+    run("DELETE FROM tags WHERE id = ?", row.id);
+    tagRemoved += 1;
+  }
 }
 
 const cats = all<{ n: number }>("SELECT COUNT(*) AS n FROM categories")[0]?.n ?? 0;
 const tags = all<{ n: number }>("SELECT COUNT(*) AS n FROM tags")[0]?.n ?? 0;
 
-console.log(`✓ 分类 ${cats} 个（新增 ${catAdded}） / 标签 ${tags} 个（新增 ${tagAdded}）`);
+console.log(
+  `✓ 分类 ${cats} 个（新增 ${catAdded} / 更新 ${catUpdated} / 删除 ${catRemoved} / 隐藏 ${catHidden}）`,
+);
+console.log(`✓ 标签 ${tags} 个（新增 ${tagAdded} / 删除 ${tagRemoved}）`);
 console.log("  资源数量未改动；下一步可以导入自己的内容。");
