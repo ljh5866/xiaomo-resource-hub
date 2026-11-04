@@ -1,4 +1,4 @@
-[Unit]
+﻿[Unit]
 Description=Xiaomo Resource Hub (Next.js)
 After=network.target
 
@@ -10,7 +10,7 @@ WorkingDirectory=/var/www/xiaomo
 Environment=NODE_ENV=production
 Environment=PORT=3100
 EnvironmentFile=/var/www/xiaomo/.env
-ExecStart=/usr/bin/pnpm start
+ExecStart=/usr/bin/env pnpm start
 Restart=always
 RestartSec=3
 # 内存兜底：异常增长时重启而不是拖垮机器
