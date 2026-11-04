@@ -53,6 +53,10 @@ pnpm install --frozen-lockfile
 log "迁移数据库"
 pnpm db:migrate
 
+# 迁移只建表不插数据：分类为空会让 /c/xxx 全部 404
+log "铺设分类与标签（幂等）"
+pnpm db:seed:taxonomy || echo "  ! db:seed:taxonomy 失败，可稍后手动补"
+
 # ---------- 3. 管理员 ----------
 if [[ -n "$ADMIN_EMAIL" && -n "$ADMIN_PASS" ]]; then
   log "确保管理员账号存在：$ADMIN_EMAIL"
