@@ -27,6 +27,8 @@ const catIdx = args.indexOf("--cat");
 const category = catIdx >= 0 ? args[catIdx + 1] : "software";
 const outIdx = args.indexOf("--out");
 const outFile = outIdx >= 0 ? args[outIdx + 1] : "data/import/batch.csv";
+/** --dry：只打印预览表格，不写文件（先看一眼标题抓得对不对） */
+const DRY = args.includes("--dry");
 
 function providerOf(url: string): string {
   for (const [re, key] of PROVIDER_BY_HOST) if (re.test(url)) return key;
@@ -75,11 +77,12 @@ function decode(s: string): string {  return s
     .replace(/&nbsp;/g, " ");
 }
 
-/** 从链接里猜提取码：?pwd=xxxx / 提取码: xxxx */
+/** 从链接里猜提取码：?pwd=xxxx / pwd=xxxx / 提取码: xxxx */
 function guessCode(line: string): string {
   const m =
     line.match(/[?&]pwd=([a-z0-9]{2,8})/i) ??
-    line.match(/(?:提取码|提取码[:：]?|code[:\s])\s*([a-z0-9]{4,8})/i);
+    line.match(/(?:^|[\s|｜])pwd=([a-z0-9]{2,8})/i) ??
+    line.match(/(?:提取码|code)[:：\s]*([a-z0-9]{4,8})/i);
   return m?.[1] ?? "";
 }
 
@@ -98,13 +101,19 @@ async function main() {
 
   const urlLines = lines.filter((l) => /https?:\/\//i.test(l));
   console.log(`→ 共 ${urlLines.length} 个链接，开始抓标题（失败的留空待补）`);
+  if (DRY) console.log("→ dry run：只预览，不写文件\n");
 
   const rows: CsvRow[] = [];
 
   for (const [i, line] of urlLines.entries()) {
     const urlMatch = line.match(/https?:\/\/\S+/i);
     const url = urlMatch?.[0] ?? "";
-    const inlineTitle = line.replace(url, "").replace(/提取码[:：]?\s*[a-z0-9]{2,8}/i, "").trim();
+    const inlineTitle = line
+      .replace(url, "")
+      .replace(/(?:^|[\s|｜?&])pwd=[a-z0-9]{2,8}/gi, " ")
+      .replace(/(?:提取码|密码|code)[:：\s]*[a-z0-9]{2,8}/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
 
     const fetched = inlineTitle || (await fetchTitle(url)) || `待补标题 ${i + 1}`;
     const title = fetched.replace(/\s*[-_|｜].*$/, "").slice(0, 80) || `待补标题 ${i + 1}`;
@@ -123,6 +132,20 @@ async function main() {
     });
 
     console.log(`   ${i + 1}. ${title}  ·  ${providerOf(url)}`);
+  }
+
+  const pad = (s: string, n: number) =>
+    [...s].length > n ? [...s].slice(0, n - 1).join("") + "…" : s + " ".repeat(n - [...s].length);
+
+  if (DRY) {
+    console.log(`${pad("标题", 30)} ${pad("分类", 10)} ${pad("网盘", 8)} 提取码`);
+    for (const r of rows) {
+      console.log(
+        `${pad(r.title, 30)} ${pad(r.categorySlug, 10)} ${pad(r.provider, 8)} ${r.extractCode || "-"}`,
+      );
+    }
+    console.log("\n（预览结束，去掉 --dry 就会生成 CSV）");
+    return;
   }
 
   fs.mkdirSync(path.dirname(outFile), { recursive: true });
