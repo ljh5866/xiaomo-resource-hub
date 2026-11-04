@@ -2,13 +2,16 @@
 #
 #   cp deploy/Caddyfile.ttals.com /etc/caddy/Caddyfile
 #   systemctl reload caddy
-#   journalctl -u caddy -f        # 看证书申请
+#   journalctl -u caddy -f
 #
-# 前置条件：DNS 里 ttals.com 的 A 记录已指向 43.103.48.5，且控制台放行 80/443
+# 两个站点块：
+#   ttals.com        前台
+#   admin.ttals.com  后台（转发到同一个 Next 进程，由 middleware 按 Host 分流）
 #
-# 关于 www.ttals.com：目前它解析到 149.104.21.x（不是这台服务器）。
-# 先把 DNS 改到 43.103.48.5 再取消下面最后一段的注释，否则 Caddy 会为一个
-# 打不开的域名反复申请证书，容易触发 Let's Encrypt 频率限制。
+# 前置：
+#   1. DNS：ttals.com / www.ttals.com / admin.ttals.com 都 A 记录到 43.103.48.5
+#   2. 控制台放行 80/443
+#   3. .env 里设 ADMIN_HOST=admin.ttals.com 与 SITE_HOST=ttals.com
 
 {
 	log default {
@@ -20,10 +23,10 @@
 	}
 }
 
+# ───────── 前台 ─────────
 ttals.com {
 	encode zstd gzip
 
-	# 静态资源长缓存（文件名自带哈希）
 	@assets path /_next/static/* /files/*
 	header @assets Cache-Control "public, max-age=31536000, immutable"
 
@@ -42,12 +45,33 @@ ttals.com {
 		health_timeout 5s
 	}
 
-	# 数据库与备份不对外
 	@private path /data/* /.env*
 	respond @private 404
 }
 
-# ── www 跳主域：等 www 的 A 记录改到 43.103.48.5 之后再启用 ──
-# www.ttals.com {
-# 	redir https://ttals.com{uri} permanent
-# }
+# ───────── 后台（子域名） ─────────
+admin.ttals.com {
+	encode zstd gzip
+
+	# 后台页面一律不缓存，避免改了看到旧的
+	header {
+		Cache-Control "no-store"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy no-referrer
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+
+	reverse_proxy 127.0.0.1:3100 {
+		header_up X-Real-IP {remote_host}
+		health_uri /api/health
+		health_interval 30s
+		health_timeout 5s
+	}
+}
+
+# ───────── www 跳主域 ─────────
+www.ttals.com {
+	redir https://ttals.com{uri} permanent
+}
