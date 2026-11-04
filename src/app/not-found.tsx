@@ -6,7 +6,7 @@ export default function NotFound() {
     <div className="container-page grid place-items-center py-24">
       <div className="max-w-md text-center">
         <p className="font-mono text-[11px] tracking-[0.22em] text-dim">404 · NOT IN INDEX</p>
-        <h1 className="mt-4 font-serif text-[32px] font-bold text-ink">
+        <h1 className="mt-4 font-sans text-[32px] font-bold text-ink">
           这张卡片不在目录里
         </h1>
         <p className="mt-3 text-[14px] leading-relaxed text-muted">

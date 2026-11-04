@@ -84,7 +84,7 @@ export function ReportDialog({
       >
         <form onSubmit={submit}>
           <div className="p-5">
-            <h2 className="font-serif text-[16px] font-semibold text-ink">举报问题</h2>
+            <h2 className="font-sans text-[16px] font-semibold text-ink">举报问题</h2>
             <p className="mt-1 text-[12px] text-muted">不需要登录，但请如实填写。</p>
 
             <label className="mt-4 block">

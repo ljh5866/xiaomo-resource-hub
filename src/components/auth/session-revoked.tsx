@@ -6,7 +6,7 @@ export function SessionRevoked() {
     <div className="container-page grid place-items-center py-24">
       <div className="max-w-md border border-line bg-surface p-8 text-center">
         <p className="font-mono text-[11px] tracking-[0.22em] text-dim">SESSION EXPIRED</p>
-        <h1 className="mt-3 font-serif text-[24px] font-bold text-ink">会话已失效</h1>
+        <h1 className="mt-3 font-sans text-[24px] font-bold text-ink">会话已失效</h1>
         <p className="mt-3 text-[13px] leading-relaxed text-muted">
           账号信息已变更（改密码或被强制下线），这台设备的登录不能再访问后台。
           请重新登录一次。

@@ -32,7 +32,7 @@ export function SearchField({
     <form
       onSubmit={submit}
       role="search"
-      className="relative flex h-12 w-full items-center border border-line bg-surface-2 transition-[border-color,box-shadow] duration-160 focus-within:border-accent focus-within:shadow-[0_0_0_3px_rgba(211,169,79,0.15)]"
+      className="relative flex h-12 w-full items-center rounded-[10px] border border-line bg-surface-2 transition-[border-color,box-shadow] duration-160 focus-within:border-accent focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_16%,transparent)]"
     >
       <Search
         className="pointer-events-none ml-3 size-[18px] shrink-0 text-dim"

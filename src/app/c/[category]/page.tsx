@@ -87,7 +87,7 @@ export default async function CategoryPage({
 
         <div className="min-w-0">
           <header className="border-b border-line pb-6">
-            <h1 className="font-serif text-[30px] font-bold text-ink lg:text-[38px]">
+            <h1 className="font-sans text-[30px] font-bold text-ink lg:text-[38px]">
               {current.name}
             </h1>
             <p className="mt-2 max-w-2xl text-[14px] leading-relaxed text-muted">

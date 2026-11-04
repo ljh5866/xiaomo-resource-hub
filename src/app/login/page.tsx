@@ -29,7 +29,7 @@ export default async function LoginPage({
         </div>
 
         <div className="mt-8 border border-line bg-surface p-6">
-          <h1 className="font-serif text-[20px] font-semibold text-ink">登录</h1>
+          <h1 className="font-sans text-[20px] font-semibold text-ink">登录</h1>
           <p className="mt-1 text-[13px] text-muted">
             后台与收藏需要账号。账号由站长创建，暂不支持自助注册。
           </p>

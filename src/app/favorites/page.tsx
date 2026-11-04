@@ -71,7 +71,7 @@ export default async function FavoritesPage() {
     <div className="container-page py-10">
       <header className="flex flex-wrap items-end justify-between gap-3 border-b border-line pb-5">
         <div>
-          <h1 className="font-serif text-[28px] font-bold text-ink">我的收藏</h1>
+          <h1 className="font-sans text-[28px] font-bold text-ink">我的收藏</h1>
           <p className="mt-1 font-mono text-[11px] text-dim">
             {rows.length} 条 ·{" "}
             {mode === "account" ? `已同步到账号 ${user?.email}` : "存在本机 cookie（登录后可跨设备）"}
@@ -85,7 +85,7 @@ export default async function FavoritesPage() {
       {rows.length === 0 ? (
         <div className="mt-10 border border-dashed border-line px-6 py-14 text-center">
           <Bookmark className="mx-auto size-8 text-dim" strokeWidth={1.5} aria-hidden />
-          <p className="mt-4 font-serif text-[18px] font-semibold text-ink">还没有收藏</p>
+          <p className="mt-4 font-sans text-[18px] font-semibold text-ink">还没有收藏</p>
           <p className="mx-auto mt-2 max-w-sm text-[13px] leading-relaxed text-muted">
             在资源详情页点「收藏」，下次就能在这里找到
             {mode === "guest" ? "。收藏不需要登录。" : "。"}

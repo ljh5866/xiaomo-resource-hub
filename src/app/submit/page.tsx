@@ -17,7 +17,7 @@ export default async function SubmitPage() {
     <div className="container-page py-12">
       <div className="mx-auto max-w-xl">
         <header className="border-b border-line pb-5">
-          <h1 className="font-serif text-[30px] font-bold text-ink">投稿</h1>
+          <h1 className="font-sans text-[30px] font-bold text-ink">投稿</h1>
           <p className="mt-2 text-[14px] leading-relaxed text-muted">
             发现了好东西？填在这里。审核通过后会归档进对应分类，并标注来源为「读者投稿」。
             不需要注册。

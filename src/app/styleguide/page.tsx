@@ -29,10 +29,10 @@ const SWATCHES = [
 ] as const;
 
 const TYPE = [
-  ["display", "text-[40px] lg:text-[56px] font-serif font-bold leading-[1.05]", "找资源，别再翻十个网盘。"],
-  ["h1", "text-[30px] lg:text-[38px] font-serif font-bold", "Excel 数据看板模板合集"],
-  ["h2", "text-[24px] font-serif font-semibold", "本周精选"],
-  ["h3", "text-[18px] font-serif font-semibold", "说明"],
+  ["display", "text-[40px] lg:text-[56px] font-sans font-bold leading-[1.05]", "找资源，别再翻十个网盘。"],
+  ["h1", "text-[30px] lg:text-[38px] font-sans font-bold", "Excel 数据看板模板合集"],
+  ["h2", "text-[24px] font-sans font-semibold", "本周精选"],
+  ["h3", "text-[18px] font-sans font-semibold", "说明"],
   ["body", "text-[16px] leading-[1.7]", "软件、模板、素材、教程，逐条编号归档。"],
   ["small", "text-[13px] leading-[1.6] text-muted", "12 套可直接套用的经营分析看板。"],
   ["caption", "text-[12px] text-dim", "共 24 项"],
@@ -43,7 +43,7 @@ export default function StyleGuidePage() {
   return (
     <div className="container-page py-10">
       <header className="border-b border-line pb-6">
-        <h1 className="font-serif text-[30px] font-bold text-ink">视觉样张</h1>
+        <h1 className="font-sans text-[30px] font-bold text-ink">视觉样张</h1>
         <p className="mt-2 max-w-2xl text-[14px] leading-relaxed text-muted">
           改颜色、改字阶、改组件形态之前，先在这一页看实际渲染。
           这里不用截图对比，改完 <code className="font-mono text-ink">globals.css</code> 或组件，
@@ -219,7 +219,7 @@ function Section({
   return (
     <section className="mt-12">
       <div className="mb-4">
-        <h2 className="font-serif text-[20px] font-semibold text-ink">{title}</h2>
+        <h2 className="font-sans text-[20px] font-semibold text-ink">{title}</h2>
         {note && <p className="mt-1 font-mono text-[11px] tracking-wide text-dim">{note}</p>}
       </div>
       {children}

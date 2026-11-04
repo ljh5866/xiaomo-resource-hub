@@ -69,15 +69,11 @@ function CoverFrame({
         featured ? "bg-surface-2" : "bg-surface-2/60",
       )}
     >
-      <div
-        aria-hidden
-        className="absolute inset-0 opacity-[0.14]"
-        style={{
-          backgroundImage:
-            "repeating-linear-gradient(0deg, var(--line-strong) 0 1px, transparent 1px 28px)",
-        }}
-      />
-      <div aria-hidden className="absolute inset-y-0 left-6 w-px bg-accent/25" />
+      {/* 极简占位：浅底 + 两圈淡描边，不用纹理 */}
+      <div aria-hidden className="absolute inset-0 grid place-items-center">
+        <div className="size-20 rounded-full border border-line-strong/60" />
+        <div className="absolute size-36 rounded-full border border-line" />
+      </div>
       <span className="absolute bottom-3 left-3 font-mono text-[11px] tracking-[0.08em] text-dim">
         {code}
       </span>
@@ -108,8 +104,8 @@ export function ResourceCard({
     <Link
       href={`/r/${data.slug}`}
       className={cn(
-        "group flex h-full flex-col border border-line bg-surface transition-[border-color,transform] duration-180 ease-out",
-        "hover:-translate-y-0.5 hover:border-line-strong",
+        "card group flex h-full flex-col overflow-hidden transition-[border-color,box-shadow,transform] duration-180 ease-out",
+        "hover:-translate-y-0.5 hover:border-line-strong hover:shadow-lg",
         data.status === "invalid" && "opacity-70",
       )}
       data-priority={priority || undefined}
@@ -130,7 +126,7 @@ export function ResourceCard({
           <StatusDot status={data.status ?? "unknown"} size="sm" />
         </div>
 
-        <h3 className="line-clamp-2 font-serif text-[17px] font-semibold leading-snug text-ink transition-colors group-hover:text-accent">
+        <h3 className="line-clamp-2 font-sans text-[16px] font-semibold leading-snug text-ink transition-colors group-hover:text-accent">
           {data.title}
         </h3>
 

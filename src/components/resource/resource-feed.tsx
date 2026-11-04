@@ -79,7 +79,7 @@ export function ResourceFeed({
         <div className="mt-8 border border-dashed border-line p-12 text-center">
           {total === 0 && !platform ? (
             <>
-              <p className="font-serif text-[18px] font-semibold text-ink">这里还没有内容</p>
+              <p className="font-sans text-[18px] font-semibold text-ink">这里还没有内容</p>
               <p className="mx-auto mt-2 max-w-sm text-[13px] leading-relaxed text-muted">
                 资源正在陆续上架。发现好东西的话，欢迎
                 <a href="/submit" className="mx-1 text-accent">
@@ -90,7 +90,7 @@ export function ResourceFeed({
             </>
           ) : (
             <>
-              <p className="font-serif text-[18px] font-semibold text-ink">这个筛选下没有资源</p>
+              <p className="font-sans text-[18px] font-semibold text-ink">这个筛选下没有资源</p>
               <p className="mx-auto mt-2 max-w-sm text-[13px] text-muted">
                 换一个平台，或者看看全部。
               </p>

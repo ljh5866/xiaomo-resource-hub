@@ -9,7 +9,7 @@ export default function AboutPage() {
   return (
     <div className="container-page py-12">
       <div className="mx-auto max-w-[68ch]">
-        <h1 className="font-serif text-[34px] font-bold text-ink">关于小莫资源网</h1>
+        <h1 className="font-sans text-[34px] font-bold text-ink">关于小莫资源网</h1>
 
         <section className="mt-8 space-y-4 text-[15px] leading-[1.9] text-ink/90">
           <p>
@@ -23,7 +23,7 @@ export default function AboutPage() {
         </section>
 
         <section id="source" className="mt-12 border-t border-line pt-8">
-          <h2 className="font-serif text-[22px] font-semibold text-ink">资源来源</h2>
+          <h2 className="font-sans text-[22px] font-semibold text-ink">资源来源</h2>
           <ul className="mt-4 space-y-3 text-[14px] leading-relaxed text-muted">
             <li>· 只收录公开发布的分享链接，不破解、不二次打包、不修改原始文件。</li>
             <li>· 每条资源记录来源页 URL、公开形式与记录日期，形成可追溯台账。</li>
@@ -32,7 +32,7 @@ export default function AboutPage() {
         </section>
 
         <section id="report" className="mt-12 border-t border-line pt-8">
-          <h2 className="font-serif text-[22px] font-semibold text-ink">链接失效怎么办</h2>
+          <h2 className="font-sans text-[22px] font-semibold text-ink">链接失效怎么办</h2>
           <p className="mt-4 text-[14px] leading-relaxed text-muted">
             系统每天自动巡检一轮。连续失败的链接会被标记为「失效」并降权展示——不隐藏，
             因为你至少知道它曾经存在。点开详情页可以看备用链接，也可以举报提醒小编优先修复。
@@ -40,7 +40,7 @@ export default function AboutPage() {
         </section>
 
         <section id="request" className="mt-12 border-t border-line pt-8">
-          <h2 className="font-serif text-[22px] font-semibold text-ink">提交资源需求</h2>
+          <h2 className="font-sans text-[22px] font-semibold text-ink">提交资源需求</h2>
           <p className="mt-4 text-[14px] leading-relaxed text-muted">
             没搜到想要的东西？把关键词和用途写清楚发给我们，收录后会出现在「每日更新」里。
             （投稿入口在 V1.1 开放，M1 骨架阶段先整理需求池。）

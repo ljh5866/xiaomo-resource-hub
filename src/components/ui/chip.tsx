@@ -12,15 +12,15 @@ export function Chip({
   tone?: "default" | "accent" | "muted";
 }) {
   const tones = {
-    default: "bg-surface-2 text-muted border-line",
-    accent: "bg-transparent text-accent border-accent/40",
+    default: "bg-surface-2 text-muted border-transparent",
+    accent: "bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] text-accent border-transparent",
     muted: "bg-transparent text-dim border-line",
   } as const;
 
   return (
     <span
       className={cn(
-        "inline-flex h-6 items-center border px-2 text-[12px] leading-none whitespace-nowrap",
+        "inline-flex h-6 items-center rounded-full border px-2.5 text-[12px] leading-none whitespace-nowrap",
         tones[tone],
         className,
       )}

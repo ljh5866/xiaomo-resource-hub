@@ -144,7 +144,7 @@ export default async function ResourcePage({
         <div className="order-2 min-w-0 lg:order-1">
           <p className="font-mono text-[12px] tracking-[0.12em] text-dim">{resource.code}</p>
 
-          <h1 className="mt-3 font-serif text-[30px] font-bold leading-tight text-ink lg:text-[38px]">
+          <h1 className="mt-3 font-sans text-[30px] font-bold leading-tight text-ink lg:text-[38px]">
             {resource.title}
           </h1>
 
@@ -195,7 +195,7 @@ export default async function ResourcePage({
 
           {/* 说明正文 */}
           <section className="mt-10">
-            <h2 className="font-serif text-[20px] font-semibold text-ink">说明</h2>
+            <h2 className="font-sans text-[20px] font-semibold text-ink">说明</h2>
             <div className="mt-4 space-y-4 text-[15px] leading-[1.85] text-ink/90">
               {(resource.contentMd ?? "暂无说明。")
                 .split(/\n{2,}/)
@@ -208,7 +208,7 @@ export default async function ResourcePage({
           {/* 标签 */}
           {tags.length > 0 && (
             <section className="mt-10">
-              <h2 className="flex items-center gap-2 font-serif text-[16px] font-semibold text-ink">
+              <h2 className="flex items-center gap-2 font-sans text-[16px] font-semibold text-ink">
                 <TagIcon className="size-4 text-dim" strokeWidth={1.5} aria-hidden />
                 标签
               </h2>
@@ -291,7 +291,7 @@ export default async function ResourcePage({
       {/* 相关推荐 */}
       {relatedFiltered.length > 0 && (
         <section className="mt-16 border-t border-line pt-10">
-          <h2 className="mb-6 font-serif text-[20px] font-semibold text-ink">相关推荐</h2>
+          <h2 className="mb-6 font-sans text-[20px] font-semibold text-ink">相关推荐</h2>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             {relatedFiltered.map((r) => (
               <ResourceCard key={r.code} data={r} />

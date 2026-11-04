@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: true },
 };
 
-const SUGGESTIONS = ["Excel 模板", "字体", "图标", "剪辑素材", "效率工具"];
+const SUGGESTIONS = ["效率工具", "单机游戏", "汉化 MOD", "开源项目", "Docker"];
 
 export default async function SearchPage({
   searchParams,
@@ -59,7 +59,7 @@ export default async function SearchPage({
 
       <div className="mx-auto mt-10 max-w-5xl">
         <div className="flex items-baseline justify-between border-b border-line pb-3">
-          <h1 className="font-serif text-[20px] font-semibold text-ink">
+          <h1 className="font-sans text-[20px] font-semibold text-ink">
             {q ? `“${q}” 的结果` : "全部资源"}
           </h1>
           <span className="font-mono text-[11px] text-dim">{results.length} 条</span>
@@ -68,7 +68,7 @@ export default async function SearchPage({
         {results.length === 0 ? (
           <div className="mt-10 border border-dashed border-line px-6 py-14 text-center">
             <SearchX className="mx-auto size-8 text-dim" strokeWidth={1.5} aria-hidden />
-            <p className="mt-4 font-serif text-[18px] font-semibold text-ink">
+            <p className="mt-4 font-sans text-[18px] font-semibold text-ink">
               {q ? `没找到“${q}”` : "先输入关键词"}
             </p>
             <p className="mx-auto mt-2 max-w-sm text-[13px] leading-relaxed text-muted">

@@ -23,8 +23,8 @@ export function Logo({ size = "md" }: { size?: "md" | "lg" }) {
       <span
         aria-hidden
         className={
-          "grid place-items-center border-2 border-accent font-serif font-black leading-none text-accent transition-colors group-hover:bg-accent group-hover:text-on-accent " +
-          (size === "lg" ? "size-12 text-2xl" : "size-9 text-lg")
+          "grid place-items-center rounded-[10px] bg-accent font-sans font-bold leading-none text-on-accent transition-colors group-hover:bg-accent-strong " +
+          (size === "lg" ? "size-12 text-xl" : "size-9 text-[15px]")
         }
       >
         {site.seal}
@@ -32,7 +32,7 @@ export function Logo({ size = "md" }: { size?: "md" | "lg" }) {
       <span className="flex flex-col leading-none">
         <span
           className={
-            "font-serif font-bold tracking-tight text-ink " +
+            "font-sans font-semibold tracking-tight text-ink " +
             (size === "lg" ? "text-xl" : "text-[17px]")
           }
         >
@@ -48,7 +48,7 @@ export function Logo({ size = "md" }: { size?: "md" | "lg" }) {
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-canvas/92 backdrop-blur-[6px]">
+    <header className="sticky top-0 z-30 border-b border-line bg-canvas/85 backdrop-blur-md">
       <div className="container-page flex h-16 items-center gap-4 lg:gap-8">
         <Logo />
 

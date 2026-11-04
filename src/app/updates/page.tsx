@@ -23,7 +23,7 @@ export default async function UpdatesPage() {
   return (
     <div className="container-page py-10">
       <header className="border-b border-line pb-6">
-        <h1 className="font-serif text-[30px] font-bold text-ink">每日更新</h1>
+        <h1 className="font-sans text-[30px] font-bold text-ink">每日更新</h1>
         <p className="mt-2 text-[14px] text-muted">
           最近上架与变更的资源，共 {total} 项。订阅{" "}
           <a className="text-accent" href="/rss.xml">RSS</a> 可第一时间收到。

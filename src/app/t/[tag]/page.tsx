@@ -82,7 +82,7 @@ export default async function TagPage({
       </nav>
 
       <header className="mt-4 border-b border-line pb-6">
-        <h1 className="font-serif text-[30px] font-bold text-ink">#{name}</h1>
+        <h1 className="font-sans text-[30px] font-bold text-ink">#{name}</h1>
         <p className="mt-2 font-mono text-[11px] text-dim">共 {items.length} 项</p>
       </header>
 

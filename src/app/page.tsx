@@ -51,7 +51,13 @@ export default async function HomePage() {
               <Suspense
                 fallback={<div className="h-12 w-full border border-line bg-surface-2" />}
               >
-                <SearchField placeholder={site.search.hero(formatCount(stats.total || 0))} />
+                <SearchField
+                  placeholder={
+                    stats.total > 0
+                      ? site.search.hero(formatCount(stats.total))
+                      : "搜索软件、游戏、MOD、开源项目…"
+                  }
+                />
               </Suspense>
             </div>
 
@@ -84,38 +90,40 @@ export default async function HomePage() {
             desc="数据库还没有资源。先跑 pnpm db:seed 灌入种子数据，或在 /admin 里录第一条。"
           />
         ) : (
-          <div className="grid grid-cols-2 gap-px border border-line bg-line sm:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {categories.map((c) => (
               <Link
                 key={c.slug}
                 href={`/c/${c.slug}`}
-                className="group flex flex-col justify-between gap-6 bg-surface p-5 transition-colors hover:bg-surface-2"
+                className="card group flex flex-col justify-between gap-6 p-5 transition-colors hover:border-line-strong hover:bg-surface-2"
               >
                 <CategoryIcon
                   slug={c.slug}
                   className="size-6 text-muted transition-colors group-hover:text-accent"
                 />
                 <div>
-                  <p className="font-serif text-[15px] font-semibold text-ink">{c.name}</p>
+                  <p className="font-sans text-[15px] font-semibold text-ink">{c.name}</p>
                   <p className="mt-1 font-mono text-[11px] text-dim">{c.count} 项</p>
                 </div>
               </Link>
             ))}
-            {/* 补满网格：让 7 个分类也能凑成整齐的 4×2 */}
-            <Link
-              href={sections.categories.moreHref}
-              className="group flex flex-col justify-between gap-6 bg-surface p-5 transition-colors hover:bg-surface-2"
-            >
-              <ArrowRight
-                className="size-6 text-muted transition-colors group-hover:text-accent"
-                strokeWidth={1.5}
-                aria-hidden
-              />
-              <div>
-                <p className="font-serif text-[15px] font-semibold text-ink">全部资源</p>
-                <p className="mt-1 font-mono text-[11px] text-dim">按时间浏览</p>
-              </div>
-            </Link>
+            {/* 分类数正好铺满一行时不加「全部资源」格子，避免出现孤零零的第二行 */}
+            {categories.length % 4 !== 0 && (
+              <Link
+                href={sections.categories.moreHref}
+                className="card group flex flex-col justify-between gap-6 p-5 transition-colors hover:border-line-strong hover:bg-surface-2"
+              >
+                <ArrowRight
+                  className="size-6 text-muted transition-colors group-hover:text-accent"
+                  strokeWidth={1.5}
+                  aria-hidden
+                />
+                <div>
+                  <p className="font-sans text-[15px] font-semibold text-ink">全部资源</p>
+                  <p className="mt-1 font-mono text-[11px] text-dim">按时间浏览</p>
+                </div>
+              </Link>
+            )}
           </div>
         )}
       </section>
@@ -199,7 +207,7 @@ function SectionHead({
   return (
     <div className="mb-6 flex items-end justify-between gap-4">
       <div>
-        <h2 className="font-serif text-[24px] font-semibold text-ink">{title}</h2>
+        <h2 className="font-sans text-[24px] font-semibold text-ink">{title}</h2>
         {note && <p className="mt-1 font-mono text-[11px] tracking-wide text-dim">{note}</p>}
       </div>
       {href && (
@@ -257,7 +265,7 @@ function EmptyBlock({
 }) {
   return (
     <div className="border border-dashed border-line bg-surface/40 p-10 text-center">
-      <p className="font-serif text-[18px] font-semibold text-ink">{title}</p>
+      <p className="font-sans text-[18px] font-semibold text-ink">{title}</p>
       <p className="mx-auto mt-2 max-w-md text-[13px] leading-relaxed text-muted">{desc}</p>
       {href && hrefLabel && (
         <Link
