@@ -85,8 +85,9 @@ ok "caddy $(caddy version | cut -d' ' -f1)"
 
 # ---------- 6. 目录骨架 ----------
 log "建立站点目录 /var/www/xiaomo"
-mkdir -p /var/www/xiaomo/data/{uploads,backups}
-ok "目录就绪"
+# 只建空目录：如果这里提前建了 data/，后面的 `git clone ... .` 会因为"目录非空"失败
+mkdir -p /var/www/xiaomo
+ok "目录就绪（data/ 由 install.sh 创建）"
 
 # ---------- 可选：安全加固 ----------
 if [[ $HARDEN -eq 1 ]]; then
