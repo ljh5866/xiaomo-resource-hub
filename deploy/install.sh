@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # 服务器端一键安装（在 /var/www/xiaomo 目录里、代码已经 clone 好之后跑）
 #
 #   sudo DOMAIN=ttals.com ADMIN_EMAIL=you@example.com ADMIN_PASS='强密码' bash deploy/install.sh
@@ -78,7 +78,7 @@ for unit in xiaomo.service xiaomo-maintenance.service xiaomo-maintenance.timer; 
 done
 systemctl daemon-reload
 
-chown -R www-data:www-data "$APP_DIR/data"
+chown -R www-data:www-data "$APP_DIR/data" "$APP_DIR/.next"
 systemctl enable --now xiaomo >/dev/null 2>&1 || systemctl restart xiaomo
 systemctl restart xiaomo
 ok "xiaomo 已启动"
