@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { ResourceCard } from "@/components/resource/resource-card";
 import { JsonLd } from "@/components/seo/json-ld";
-import { listResourcesByTag } from "@/lib/queries";
+import { getTagBySlug, listResourcesByTag } from "@/lib/queries";
 import { breadcrumbJsonLd, collectionJsonLd } from "@/lib/seo";
 
 export const revalidate = 3600;
@@ -20,19 +21,23 @@ export async function generateMetadata({
   params: Promise<{ tag: string }>;
 }): Promise<Metadata> {
   const { tag } = await params;
+  const row = await getTagBySlug(tag);
+  if (!row) return { title: "标签不存在", robots: { index: false } };
+
+  const name = row.name;
   return {
-    title: `#${tag}`,
-    description: `标签「${tag}」下的全部资源。`,
+    title: `#${name}`,
+    description: `标签「${name}」下的全部资源。`,
     alternates: { canonical: `/t/${tag}` },
     openGraph: {
-      title: `#${tag} · 小莫资源网`,
-      description: `标签「${tag}」下的全部资源。`,
+      title: `#${name} · 小莫资源网`,
+      description: `标签「${name}」下的全部资源。`,
       images: [
         {
-          url: `/api/og?title=${encodeURIComponent(`#${tag}`)}&tag=${encodeURIComponent("标签聚合")}`,
+          url: `/api/og?title=${encodeURIComponent(`#${name}`)}&tag=${encodeURIComponent("标签聚合")}`,
           width: 1200,
           height: 630,
-          alt: tag,
+          alt: name,
         },
       ],
     },
@@ -45,6 +50,12 @@ export default async function TagPage({
   params: Promise<{ tag: string }>;
 }) {
   const { tag } = await params;
+
+  // 标签不存在就 404，而不是给搜索引擎一个 200 的空页（软 404）
+  const row = await getTagBySlug(tag);
+  if (!row) notFound();
+
+  const name = row.name;
   const items = await listResourcesByTag(tag);
 
   return (
@@ -52,14 +63,14 @@ export default async function TagPage({
       <JsonLd
         data={[
           collectionJsonLd({
-            name: `#${tag}`,
-            description: `标签「${tag}」下的全部资源。`,
+            name: `#${name}`,
+            description: `标签「${name}」下的全部资源。`,
             path: `/t/${tag}`,
             items: items.map((i) => ({ title: i.title, path: `/r/${i.slug}` })),
           }),
           breadcrumbJsonLd([
             { name: "首页", path: "/" },
-            { name: `#${tag}`, path: `/t/${tag}` },
+            { name: `#${name}`, path: `/t/${tag}` },
           ]),
         ]}
       />
@@ -71,7 +82,7 @@ export default async function TagPage({
       </nav>
 
       <header className="mt-4 border-b border-line pb-6">
-        <h1 className="font-serif text-[30px] font-bold text-ink">#{tag}</h1>
+        <h1 className="font-serif text-[30px] font-bold text-ink">#{name}</h1>
         <p className="mt-2 font-mono text-[11px] text-dim">共 {items.length} 项</p>
       </header>
 

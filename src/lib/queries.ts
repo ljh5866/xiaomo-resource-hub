@@ -169,6 +169,17 @@ export async function searchResources(
   return rows.map(toCard);
 }
 
+/** 标签是否存在（用来决定 404，而不是渲染一个空标签页） */
+export async function getTagBySlug(
+  slug: string,
+): Promise<{ slug: string; name: string; useCount: number } | null> {
+  const row = get<{ slug: string; name: string; useCount: number }>(
+    "SELECT slug, name, use_count AS useCount FROM tags WHERE slug = ? LIMIT 1",
+    slug,
+  );
+  return row ?? null;
+}
+
 export async function listResourcesByTag(
   tagSlug: string,
   limit = 40,
