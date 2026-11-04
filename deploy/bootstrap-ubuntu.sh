@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # 阿里云香港 · Ubuntu 24.04 初始化脚本
 #
 #   bash bootstrap-ubuntu.sh                     # 只装环境（安全）
@@ -39,9 +39,21 @@ log "安装基础依赖与中文字体（分享图依赖）"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq curl git build-essential ca-certificates ufw \
-  fonts-noto-cjk locales >/dev/null
+  fontconfig fonts-noto-cjk locales >/dev/null
 locale-gen zh_CN.UTF-8 >/dev/null 2>&1 || true
-ok "依赖与 fonts-noto-cjk 就绪"
+
+# 字体缓存必须重建，否则 fc-list 看不到新装的字
+fc-cache -f >/dev/null 2>&1 || true
+
+if ! command -v fc-list >/dev/null; then
+  echo "  ! fc-list 缺失（fontconfig 没装上），分享图里的中文会变方块"
+elif [[ "$(fc-list :lang=zh | wc -l)" -eq 0 ]]; then
+  echo "  ! fonts-noto-cjk 装了但 fc-list 看不到中文字体，手动检查："
+  echo "    dpkg -l | grep fonts-noto-cjk ; ls /usr/share/fonts/opentype/noto/"
+else
+  ok "中文字体就绪：$(fc-list :lang=zh | wc -l) 个"
+fi
+ok "依赖安装完成"
 
 # ---------- 4. Node 24 + pnpm ----------
 if ! command -v node >/dev/null || [[ "$(node -v | cut -d. -f1)" != "v24" ]]; then
