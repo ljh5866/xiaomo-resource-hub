@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
-import "./globals.css";
-import { Header } from "@/components/layout/header";
-import { Footer } from "@/components/layout/footer";
 import { AuthProvider } from "@/components/auth/session-provider";
 import { site } from "@/content/site";
+import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(site.baseUrl),
@@ -14,6 +12,7 @@ export const metadata: Metadata = {
   description: site.seo.description,
   keywords: [...site.seo.keywords],
   applicationName: site.name,
+  formatDetection: { telephone: false, address: false, email: false },
   openGraph: {
     type: "website",
     locale: "zh_CN",
@@ -22,7 +21,7 @@ export const metadata: Metadata = {
     description: site.seo.description,
     images: [
       {
-        url: `/api/og?title=${encodeURIComponent(site.name)}&sub=${encodeURIComponent("认真归档的好用资源 · 只做索引")}`,
+        url: `/api/og?title=${encodeURIComponent(site.name)}&sub=${encodeURIComponent("软件 · 游戏 · MOD · 开源项目")}`,
         width: 1200,
         height: 630,
         alt: site.name,
@@ -34,7 +33,7 @@ export const metadata: Metadata = {
     title: site.seo.title,
     description: site.seo.description,
     images: [
-      `/api/og?title=${encodeURIComponent(site.name)}&sub=${encodeURIComponent("认真归档的好用资源 · 只做索引")}`,
+      `/api/og?title=${encodeURIComponent(site.name)}&sub=${encodeURIComponent("软件 · 游戏 · MOD · 开源项目")}`,
     ],
   },
   robots: { index: true, follow: true },
@@ -52,13 +51,7 @@ export default function RootLayout({
         >
           跳到主要内容
         </a>
-        <AuthProvider>
-          <Header />
-          <main id="main" className="flex-1">
-            {children}
-          </main>
-          <Footer />
-        </AuthProvider>
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

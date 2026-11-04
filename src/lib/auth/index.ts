@@ -20,6 +20,7 @@ type UserRow = {
   role: string;
   password_hash: string | null;
   token_version: number;
+  status: string;
 };
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -47,11 +48,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         const user = get<UserRow>(
-          "SELECT id, email, name, role, password_hash, token_version FROM users WHERE lower(email) = ? LIMIT 1",
+          "SELECT id, email, name, role, password_hash, token_version, status FROM users WHERE lower(email) = ? LIMIT 1",
           email,
         );
 
         if (!user?.password_hash) return null;
+
+        // 只允许 active 账号登录：pending 待审核、banned 封禁都拒绝
+        if ((user.status ?? "active") !== "active") return null;
         if (!verifyPassword(password, user.password_hash)) return null;
 
         reset(key);

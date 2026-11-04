@@ -3,14 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { signIn } from "next-auth/react";
-import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 
 const inputCls =
-  "min-h-11 w-full border border-line bg-surface-2 px-3 text-[14px] text-ink outline-none transition-colors focus:border-accent";
+  "min-h-11 w-full rounded-[10px] border border-line bg-surface-2 px-3 text-[14px] text-ink outline-none transition-colors focus:border-accent";
 
-export function LoginForm({ next }: { next: string }) {
+export function LoginForm({ next, defaultEmail }: { next: string; defaultEmail?: string }) {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(defaultEmail ?? "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [fails, setFails] = useState(0);
@@ -21,11 +21,7 @@ export function LoginForm({ next }: { next: string }) {
     setError(null);
 
     start(async () => {
-      const res = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      });
+      const res = await signIn("credentials", { email, password, redirect: false });
 
       if (res?.error) {
         const n = fails + 1;
@@ -37,6 +33,7 @@ export function LoginForm({ next }: { next: string }) {
         );
         return;
       }
+
       router.push(next);
       router.refresh();
     });
@@ -50,8 +47,8 @@ export function LoginForm({ next }: { next: string }) {
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          autoComplete="email"
           required
+          autoComplete="email"
           placeholder="you@example.com"
           className={inputCls}
         />
@@ -63,23 +60,27 @@ export function LoginForm({ next }: { next: string }) {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          autoComplete="current-password"
           required
-          minLength={8}
+          autoComplete="current-password"
           placeholder="至少 8 位"
           className={inputCls}
         />
       </label>
 
       {error && (
-        <p className="border border-danger/40 bg-danger/5 px-3 py-2 text-[12px] text-danger">
+        <p className="rounded-[10px] border border-danger/30 bg-danger/5 px-3 py-2 text-[12px] text-danger">
           {error}
         </p>
       )}
 
-      <Button type="submit" variant="primary" size="lg" className="w-full" disabled={pending}>
+      <button
+        type="submit"
+        disabled={pending}
+        className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 bg-accent text-[14px] font-medium text-on-accent transition-colors hover:bg-accent-strong disabled:cursor-wait disabled:opacity-60"
+      >
+        {pending && <Loader2 className="size-4 animate-spin" strokeWidth={1.5} aria-hidden />}
         {pending ? "登录中…" : "登录"}
-      </Button>
+      </button>
     </form>
   );
 }

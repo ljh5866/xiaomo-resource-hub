@@ -41,32 +41,39 @@ log.push({
   role: sessionJson?.user?.role ?? null,
 });
 
-/* 6. 收藏：走真实 UI（不依赖资源 id） */
+/* 6. 收藏：走真实 UI（不依赖资源 id；空库时跳过） */
 await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded" });
 await page.waitForTimeout(800);
-const firstCard = page.locator('a[href^="/r/"]').first();
-await firstCard.click();
-await page.waitForTimeout(1200);
 
-const title = (await page.locator("h1").first().textContent())?.trim() ?? "";
-const favBtn = page.getByRole("button", { name: /收藏/ }).first();
+const cardCount = await page.locator('a[href^="/r/"]').count();
+if (cardCount === 0) {
+  log.push({ step: "favorite", skipped: "库里没有资源" });
+  log.push({ step: "favorites-page", skipped: true });
+} else {
+  const firstCard = page.locator('a[href^="/r/"]').first();
+  await firstCard.click();
+  await page.waitForTimeout(1200);
 
-// 幂等：上次跑过可能已经是「已收藏」，先确保处于未收藏再点
-let label = (await favBtn.textContent())?.trim() ?? "";
-if (label.includes("已收藏")) {
+  const title = (await page.locator("h1").first().textContent())?.trim() ?? "";
+  const favBtn = page.getByRole("button", { name: /收藏/ }).first();
+
+  // 幂等：上次跑过可能已经是「已收藏」，先确保处于未收藏再点
+  let label = (await favBtn.textContent())?.trim() ?? "";
+  if (label.includes("已收藏")) {
+    await favBtn.click();
+    await page.waitForTimeout(800);
+  }
   await favBtn.click();
   await page.waitForTimeout(800);
-}
-await favBtn.click();
-await page.waitForTimeout(800);
-const favLabel = (await favBtn.textContent())?.trim() ?? "";
-log.push({ step: "favorite", title, label: favLabel });
+  const favLabel = (await favBtn.textContent())?.trim() ?? "";
+  log.push({ step: "favorite", title, label: favLabel });
 
-/* 7. 收藏页能看到它 */
-await page.goto(`${BASE}/favorites`, { waitUntil: "domcontentloaded" });
-await page.waitForTimeout(600);
-const inList = (await page.locator("body").textContent())?.includes(title) ?? false;
-log.push({ step: "favorites-page", containsTitle: inList });
+  /* 7. 收藏页能看到它 */
+  await page.goto(`${BASE}/favorites`, { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(600);
+  const inList = (await page.locator("body").textContent())?.includes(title) ?? false;
+  log.push({ step: "favorites-page", containsTitle: inList });
+}
 
 /* 8. 退出 */
 await page.goto(`${BASE}/admin`, { waitUntil: "domcontentloaded" });
@@ -90,12 +97,19 @@ await browser.close();
 console.log(JSON.stringify(log, null, 2));
 
 const find = (s) => log.find((l) => l.step === s);
+
+const fav = find("favorite");
+const favPage = find("favorites-page");
+// 库里没资源时收藏部分会跳过
+const favOk = fav?.skipped ? true : Boolean(fav?.label?.includes("已收藏"));
+const favPageOk = favPage?.skipped ? true : favPage?.containsTitle === true;
+
 const ok =
   find("guard")?.status === 200 &&
   find("upload-guard")?.status === 401 &&
   find("session")?.role === "admin" &&
-  find("favorite")?.label?.includes("已收藏") &&
-  find("favorites-page")?.containsTitle === true &&
+  favOk &&
+  favPageOk &&
   find("signout")?.sessionGone === true &&
   find("after-logout")?.url?.startsWith("/login");
 

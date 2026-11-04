@@ -158,6 +158,55 @@
 }
 
 /* ==================================================================
+   后台：刻意的另一套视觉语言（灰底、石墨色、方角、密排）
+   —— 和前台的白底蓝调区分开，进后台就知道自己在"工具"里
+   ================================================================== */
+.admin-scope {
+  --bg: #f4f4f5;
+  --surface: #ffffff;
+  --surface-2: #fafafa;
+
+  --line: #e4e4e7;
+  --line-strong: #d4d4d8;
+
+  --ink: #111114;
+  --muted: #52525b;
+  --dim: #7c7c86;
+
+  --accent: #18181b;
+  --accent-strong: #000000;
+  --on-accent: #ffffff;
+
+  --ok: #15803d;
+  --danger: #b91c1c;
+  --info: #334155;
+
+  --card-shadow: none;
+  --radius-card: 4px;
+  --radius-control: 6px;
+
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+}
+
+/* 后台表格：密排，行高小，靠表头分隔而不是斑马纹 */
+.admin-scope table {
+  font-size: 13px;
+}
+
+.admin-scope th {
+  font-weight: 500;
+}
+
+.admin-scope h1,
+.admin-scope h2,
+.admin-scope h3 {
+  letter-spacing: -0.01em;
+}
+
+/* ==================================================================
    Utilities
    ================================================================== */
 @utility container-page {

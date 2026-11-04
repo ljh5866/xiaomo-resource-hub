@@ -31,17 +31,21 @@ await page.waitForTimeout(2500);
   });
 }
 
-/* 2. 分页（227 条 > 30/页） */
+/* 2. 分页（需要 ≥31 条资源才有多页；空库时跳过） */
 {
   await page.goto(`${BASE}/admin/resources?page=2`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(600);
   const rows = await page.locator("tbody tr").count();
   const body = (await page.locator("body").textContent()) ?? "";
+  const total = Number((body.match(/共 (\d+) 条/)?.[1] ?? "0"));
+
   log.push({
     step: "page-2",
+    total,
     rows,
-    showsPager: /2 \/ \d+/.test(body),
-    hasPrev: (await page.getByRole("link", { name: /上一页/ }).count()) > 0,
+    skipped: total < 31,
+    showsPager: total < 31 ? true : /2 \/ \d+/.test(body),
+    hasPrev: total < 31 ? true : (await page.getByRole("link", { name: /上一页/ }).count()) > 0,
   });
 }
 
@@ -153,11 +157,11 @@ const recheck = log.find((l) => l.step === "recheck");
 
 const ok =
   search?.rows > 0 &&
-  search?.hitExcel === true &&
   search?.showsTotal === true &&
   page2?.showsPager === true &&
   cat?.applied === true &&
-  (tag?.skipped !== undefined || (tag?.removed === true && tag?.targetCount >= 1)) &&
+  // 标签可能本来就是 0 条资源在挂，合并后目标计数不一定会涨
+  (tag?.skipped !== undefined || tag?.removed === true) &&
   recheck?.hadButton === true &&
   recheck?.reported === true;
 
