@@ -1,0 +1,41 @@
+# 没有域名时的临时配置：直接用 IP + HTTP 访问
+#   1. cp deploy/Caddyfile.ip /etc/caddy/Caddyfile
+#   2. systemctl reload caddy
+#   3. 浏览器打开 http://43.103.48.5
+#
+# 注意：Let's Encrypt 不给纯 IP 签证书，所以这条路只有 HTTP。
+# 拿到域名后换成 Caddyfile.domain 即可（Caddy 会自动申请证书）。
+
+{
+	log default {
+		output file /var/log/caddy/xiaomo-access.log {
+			roll_size 20mb
+			roll_keep 5
+		}
+		format console
+	}
+}
+
+http://43.103.48.5 {
+	encode zstd gzip
+
+	@assets path /_next/static/* /files/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options SAMEORIGIN
+		-Server
+	}
+
+	reverse_proxy 127.0.0.1:3100 {
+		header_up X-Real-IP {remote_host}
+		health_uri /api/health
+		health_interval 30s
+		health_timeout 5s
+	}
+
+	@private path /data/* /.env*
+	respond @private 404
+}

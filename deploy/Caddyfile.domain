@@ -1,0 +1,47 @@
+# 有域名时的 Caddy 配置（自动 HTTPS）
+#   1. 把 xiaomo.example.com 换成你的域名（两处）
+#   2. cp deploy/Caddyfile.domain /etc/caddy/Caddyfile
+#   3. systemctl reload caddy
+#   4. DNS 里 A 记录 @ 和 www 都要指向服务器公网 IP
+
+{
+	log default {
+		output file /var/log/caddy/xiaomo-access.log {
+			roll_size 20mb
+			roll_keep 5
+		}
+		format console
+	}
+}
+
+xiaomo.example.com {
+	encode zstd gzip
+
+	# 静态资源长缓存（文件名自带哈希）
+	@assets path /_next/static/* /files/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options SAMEORIGIN
+		Permissions-Policy "geolocation=(), microphone=(), camera=()"
+		-Server
+	}
+
+	reverse_proxy 127.0.0.1:3100 {
+		header_up X-Real-IP {remote_host}
+		health_uri /api/health
+		health_interval 30s
+		health_timeout 5s
+	}
+
+	# 数据库与备份不对外
+	@private path /data/* /.env*
+	respond @private 404
+}
+
+# www 跳主域（可选，按需删）
+www.xiaomo.example.com {
+	redir https://xiaomo.example.com{uri} permanent
+}
