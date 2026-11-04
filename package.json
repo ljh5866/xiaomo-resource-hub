@@ -18,6 +18,7 @@
     "import:links": "tsx src/scripts/make-csv.ts",
     "db:clean:content": "tsx src/scripts/clean-content.ts",
     "db:seed": "tsx src/db/seed.ts",
+    "db:seed:taxonomy": "tsx src/scripts/seed-taxonomy.ts",
     "db:reindex": "tsx src/scripts/reindex.ts",
     "links:check": "tsx src/scripts/check-links.ts",
     "covers:gen": "tsx src/scripts/gen-covers.ts",
