@@ -1,10 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { Bookmark, Inbox, Settings, ShieldCheck } from "lucide-react";
+import { Bookmark, Inbox, Settings } from "lucide-react";
 import { Avatar } from "@/components/user/avatar";
-import { AvatarUploader } from "@/components/user/avatar-uploader";
-import { ProfileForms } from "@/components/user/profile-forms";
 import { ResourceCard } from "@/components/resource/resource-card";
 import { ButtonLink } from "@/components/ui/button";
 import { getSessionUser } from "@/lib/auth";
@@ -23,11 +20,14 @@ export const dynamic = "force-dynamic";
 const TABS = [
   { key: "favorites", label: "收藏", icon: Bookmark },
   { key: "submissions", label: "投稿", icon: Inbox },
-  { key: "settings", label: "设置", icon: Settings },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
 
+/**
+ * 用户页：资料 + 收藏 + 投稿。
+ * 设置是独立页面（/me/settings），不放在 tab 里。
+ */
 export default async function MePage({
   searchParams,
 }: {
@@ -38,7 +38,7 @@ export default async function MePage({
 
   const user = await getSessionUser();
 
-  /* 未登录：展示本地收藏 + 引导登录 */
+  /* 未登录：本机收藏 + 引导登录 */
   if (!user) {
     const ids = await readFavIds();
     const rows = listFavoritesByIds(ids);
@@ -89,8 +89,8 @@ export default async function MePage({
   }
 
   /* 已登录 */
-  const row = get<{ avatar_url: string | null; created_at: number; role: string; password_hash: string | null }>(
-    "SELECT avatar_url, created_at, role, password_hash FROM users WHERE id = ?",
+  const row = get<{ avatar_url: string | null; created_at: number; role: string }>(
+    "SELECT avatar_url, created_at, role FROM users WHERE id = ?",
     user.id,
   );
 
@@ -101,18 +101,14 @@ export default async function MePage({
 
   return (
     <div className="container-page py-10">
-      {/* 头部 */}
       <header className="flex flex-wrap items-start justify-between gap-6 border-b border-line pb-6">
         <div className="flex items-center gap-4">
-          <AvatarUploader name={displayName} src={row?.avatar_url ?? null} />
+          <Avatar name={displayName} src={row?.avatar_url ?? null} size="lg" />
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-[22px] font-semibold text-ink">{displayName}</h1>
               {row?.role === "admin" && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-ink/5 px-2 py-0.5 text-[11px] text-ink">
-                  <ShieldCheck className="size-3" strokeWidth={1.5} aria-hidden />
-                  管理员
-                </span>
+                <span className="rounded-full bg-ink/5 px-2 py-0.5 text-[11px] text-ink">管理员</span>
               )}
             </div>
             <p className="mt-1 text-[13px] text-muted">{user.email}</p>
@@ -122,12 +118,20 @@ export default async function MePage({
           </div>
         </div>
 
-        <ButtonLink href="/" variant="secondary" size="sm">
-          回到首页
-        </ButtonLink>
+        <div className="flex gap-2">
+          <Link
+            href="/me/settings"
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-[10px] border border-line bg-surface px-3 text-[13px] text-ink transition-colors hover:border-line-strong"
+          >
+            <Settings className="size-3.5" strokeWidth={1.5} aria-hidden />
+            账号设置
+          </Link>
+          <ButtonLink href="/" variant="secondary" size="sm">
+            回到首页
+          </ButtonLink>
+        </div>
       </header>
 
-      {/* tab */}
       <nav className="mt-6 flex gap-1 border-b border-line">
         {TABS.map((t) => {
           const Icon = t.icon;
@@ -203,10 +207,6 @@ export default async function MePage({
               ))}
             </ul>
           ))}
-
-        {tab === "settings" && (
-          <ProfileForms name={displayName} hasPassword={Boolean(row?.password_hash)} />
-        )}
       </div>
     </div>
   );
