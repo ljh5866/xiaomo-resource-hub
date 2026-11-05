@@ -17,6 +17,7 @@ const NAV: NavGroup[] = [
     items: [
       { href: "/admin", label: "概览", icon: "dashboard" },
       { href: "/admin/resources", label: "资源", icon: "resources" },
+      { href: "/admin/games", label: "游戏分类", icon: "games" },
       { href: "/admin/taxonomy", label: "分类与标签", icon: "taxonomy" },
     ],
   },

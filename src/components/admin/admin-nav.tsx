@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Boxes,
   FileInput,
+  Gamepad2,
   Inbox,
   LayoutDashboard,
   Link2,
@@ -20,6 +21,7 @@ export type NavGroup = { group: string; items: NavItem[] };
 const ICONS: Record<string, LucideIcon> = {
   dashboard: LayoutDashboard,
   resources: Boxes,
+  games: Gamepad2,
   taxonomy: Tags,
   submissions: Inbox,
   reports: ShieldAlert,

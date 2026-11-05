@@ -26,7 +26,8 @@ export const dynamic = "force-dynamic";
  */
 export default async function AdminLoginPage() {
   const user = await getSessionUser();
-  if (user?.role === "admin") redirect("/");
+  // 已登录的管理员直接进控制台（子域下 / 会被 middleware 重写到 /admin）
+  if (user?.role === "admin") redirect(process.env.ADMIN_HOST ? "/" : "/admin");
 
   return (
     <div className="admin-scope grid min-h-screen place-items-center px-4 py-10">
@@ -51,7 +52,7 @@ export default async function AdminLoginPage() {
           </p>
 
           <Suspense fallback={null}>
-            <LoginForm next="/" />
+            <LoginForm next={process.env.ADMIN_HOST ? "/" : "/admin"} />
           </Suspense>
         </div>
 
