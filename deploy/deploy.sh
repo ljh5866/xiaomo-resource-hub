@@ -133,11 +133,18 @@ ok_step "启动" "$(since $S)"
 step "7/8 安装每日任务（GitHub star 同步）"
 S=$(date +%s)
 if [[ -f deploy/xiaomo-stars.service && -f deploy/xiaomo-stars.timer ]]; then
-  sudo cp deploy/xiaomo-stars.service deploy/xiaomo-stars.timer /etc/systemd/system/ 2>/dev/null || true
-  sudo systemctl daemon-reload 2>/dev/null || true
-  sudo systemctl enable --now xiaomo-stars.timer 2>/dev/null || true
-  ok_step "定时器" "$(since $S)"
-  sudo systemctl list-timers xiaomo-stars.timer --no-pager 2>/dev/null | head -3 || true
+  sudo cp deploy/xiaomo-stars.service deploy/xiaomo-stars.timer /etc/systemd/system/
+  sudo systemctl daemon-reload
+  sudo systemctl enable --now xiaomo-stars.timer
+  # 装完立刻验证，别让失败悄悄过去
+  if systemctl list-timers xiaomo-stars.timer --no-pager | grep -q xiaomo-stars; then
+    ok_step "定时器" "$(since $S)"
+    systemctl list-timers xiaomo-stars.timer --no-pager | head -3
+  else
+    echo "  ！定时器没装上，手动排查："
+    echo "    ls -l deploy/xiaomo-stars.*"
+    echo "    sudo systemctl status xiaomo-stars.timer --no-pager"
+  fi
 else
   echo "  跳过（仓库里没有 timer 文件）"
 fi
