@@ -89,13 +89,15 @@ export async function listResources(
     categorySlug?: string;
     gameSlug?: string;
     genreSlug?: string;
+    ghSlug?: string;
+    hot?: boolean;
     featured?: boolean;
     excludeFeatured?: boolean;
     limit?: number;
     offset?: number;
   } = {},
 ): Promise<ResourceCardData[]> {
-  const { categorySlug, gameSlug, genreSlug, featured, excludeFeatured, limit = 12, offset = 0 } = opts;
+  const { categorySlug, gameSlug, genreSlug, ghSlug, hot, featured, excludeFeatured, limit = 12, offset = 0 } = opts;
   const where: string[] = ["r.status = 'published'"];
   const params: (string | number)[] = [];
 
@@ -107,6 +109,11 @@ export async function listResources(
     where.push("EXISTS (SELECT 1 FROM resource_tags rt JOIN tags t ON t.id = rt.tag_id WHERE rt.resource_id = r.id AND t.slug = ? AND t.kind = 'genre')");
     params.push(genreSlug);
   }
+  if (ghSlug) {
+    where.push("EXISTS (SELECT 1 FROM resource_tags rt JOIN tags t ON t.id = rt.tag_id WHERE rt.resource_id = r.id AND t.slug = ? AND t.kind = 'gh')");
+    params.push(ghSlug);
+  }
+  if (hot) where.push("r.updated_at >= unixepoch() - 7 * 86400");
 
   if (categorySlug) {
     where.push("c.slug = ?");
@@ -128,9 +135,15 @@ export async function listResources(
 
 /** 列表页总数：给"加载更多"判断是否还有下一页 */
 export async function countResources(
-  opts: { categorySlug?: string; gameSlug?: string; genreSlug?: string } = {},
+  opts: {
+    categorySlug?: string;
+    gameSlug?: string;
+    genreSlug?: string;
+    ghSlug?: string;
+    hot?: boolean;
+  } = {},
 ): Promise<number> {
-  const { categorySlug, gameSlug, genreSlug } = opts;
+  const { categorySlug, gameSlug, genreSlug, ghSlug, hot } = opts;
   const where = ["r.status = 'published'"];
   const params: string[] = [];
 
@@ -150,6 +163,11 @@ export async function countResources(
     where.push("EXISTS (SELECT 1 FROM resource_tags rt JOIN tags t ON t.id = rt.tag_id WHERE rt.resource_id = r.id AND t.slug = ? AND t.kind = 'genre')");
     params.push(genreSlug);
   }
+  if (ghSlug) {
+    where.push("EXISTS (SELECT 1 FROM resource_tags rt JOIN tags t ON t.id = rt.tag_id WHERE rt.resource_id = r.id AND t.slug = ? AND t.kind = 'gh')");
+    params.push(ghSlug);
+  }
+  if (hot) where.push("r.updated_at >= unixepoch() - 7 * 86400");
 
   return (
     get<{ n: number }>(

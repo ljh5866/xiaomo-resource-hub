@@ -56,6 +56,11 @@ const TAGS: [slug: string, name: string, kind?: string][] = [
   ["story", "故事", "genre"],
   ["management", "经营", "genre"],
   ["misc", "其他", "genre"],
+
+  // GitHub 开源项目分类的筛选条
+  ["android-app", "安卓端", "gh"],
+  ["ios-app", "iOS 端", "gh"],
+  ["desktop-app", "桌面端", "gh"],
   ["windows", "Windows", "platform"],
   ["mac", "macOS", "platform"],
   ["android", "Android", "platform"],

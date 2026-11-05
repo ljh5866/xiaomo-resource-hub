@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CategoryRail } from "@/components/layout/category-rail";
 import { FilterChips } from "@/components/resource/filter-chips";
@@ -19,9 +20,13 @@ export const dynamic = "force-dynamic";
 const PAGE_SIZE = 24;
 
 /** 分类 → 用哪一类标签做筛选条 */
-const FILTER_KIND: Record<string, { kind: "game" | "genre"; label: string; param: "game" | "genre" }> = {
+const FILTER_KIND: Record<
+  string,
+  { kind: "game" | "genre" | "gh"; label: string; param: "game" | "genre" | "gh" }
+> = {
   mods: { kind: "game", label: "游戏", param: "game" },
   games: { kind: "genre", label: "类型", param: "genre" },
+  opensource: { kind: "gh", label: "端", param: "gh" },
 };
 
 export async function generateMetadata({
@@ -67,22 +72,25 @@ export default async function CategoryPage({
   searchParams,
 }: {
   params: Promise<{ category: string }>;
-  searchParams: Promise<{ page?: string; game?: string; genre?: string }>;
+  searchParams: Promise<{ page?: string; game?: string; genre?: string; gh?: string; hot?: string }>;
 }) {
   const { category } = await params;
-  const { page: pageRaw, game, genre } = await searchParams;
+  const { page: pageRaw, game, genre, gh, hot: hotRaw } = await searchParams;
+  const hot = hotRaw === "1";
 
   const categories = await listCategories();
   const current = categories.find((c) => c.slug === category);
   if (!current) notFound();
 
   const filter = FILTER_KIND[category];
-  const activeSlug = filter?.param === "genre" ? genre : game;
+  const activeSlug = filter?.param === "genre" ? genre : filter?.param === "gh" ? gh : game;
 
   const total = await countResources({
     categorySlug: category,
     gameSlug: filter?.param === "game" ? game : undefined,
     genreSlug: filter?.param === "genre" ? genre : undefined,
+    ghSlug: gh,
+    hot,
   });
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const page = Math.min(Math.max(1, Number(pageRaw) || 1), totalPages);
@@ -92,13 +100,15 @@ export default async function CategoryPage({
       categorySlug: category,
       gameSlug: filter?.param === "game" ? game : undefined,
       genreSlug: filter?.param === "genre" ? genre : undefined,
+      ghSlug: gh,
+      hot,
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,
     }),
     filter
-      ? filter.kind === "genre"
-        ? listTagsOfKind("genre")
-        : listTagsByKind("game", category)
+      ? filter.kind === "game"
+        ? listTagsByKind("game", category)
+        : listTagsOfKind(filter.kind)
       : Promise.resolve([]),
   ]);
 
@@ -141,13 +151,24 @@ export default async function CategoryPage({
           </header>
 
           {filter && (
-            <FilterChips
-              categorySlug={category}
-              label={filter.label}
-              param={filter.param}
-              items={filterItems}
-              active={activeSlug ?? ""}
-            />
+            <div className="flex flex-wrap items-center gap-2">
+              <FilterChips
+                categorySlug={category}
+                label={filter.label}
+                param={filter.param}
+                items={filterItems}
+                active={activeSlug ?? ""}
+              />
+              {category === "opensource" && (
+                <Link
+                  href={hot ? "/c/opensource" : "/c/opensource?hot=1"}
+                  scroll={false}
+                  className="mt-5 inline-flex min-h-8 items-center rounded-full border px-3 text-[12px] transition-colors "
+                >
+                  {hot ? "取消本周热门" : "本周热门项目"}
+                </Link>
+              )}
+            </div>
           )}
 
           {items.length === 0 ? (
