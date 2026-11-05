@@ -453,3 +453,44 @@ export async function listTagsOfKind(kind: string): Promise<{ slug: string; name
     kind,
   );
 }
+/**
+ * 本周热门开源项目：最近 7 天 star 增长最多的资源。
+ *
+ * 数据来自 repo_stars 每日快照（脚本 sync-github-stars.mjs 写入）。
+ * 快照不足两条时无法算增量，退化为按仓库当前 star 总量排序，
+ * 保证「本周热门」第一天也有内容，不会空白。
+ */
+export async function listWeeklyHotRepos(limit = 24): Promise<ResourceCardData[]> {
+  const hot = all<CardRow>(
+    `${CARD_SELECT}
+     JOIN (
+       SELECT resource_id,
+              MAX(stars) - MIN(stars) AS gained,
+              MAX(stars) AS current
+         FROM repo_stars
+        WHERE day >= date('now', '-7 day')
+        GROUP BY resource_id
+     ) s ON s.resource_id = r.id
+     WHERE r.status = 'published' AND s.gained > 0
+     ORDER BY s.gained DESC, s.current DESC
+     LIMIT ?`,
+    limit,
+  );
+
+  if (hot.length) return hot.map(toCard);
+
+  // 兜底：还没有一周的数据，先按 star 总量取最热的
+  const fallback = all<CardRow>(
+    `${CARD_SELECT}
+     JOIN (
+       SELECT resource_id, MAX(stars) AS current
+         FROM repo_stars
+        GROUP BY resource_id
+     ) s ON s.resource_id = r.id
+     WHERE r.status = 'published'
+     ORDER BY s.current DESC
+     LIMIT ?`,
+    limit,
+  );
+  return fallback.map(toCard);
+}

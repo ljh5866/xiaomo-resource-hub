@@ -1,0 +1,14 @@
+[Unit]
+Description=Xiaomo · sync GitHub star snapshots
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/var/www/xiaomo
+# 用 www-data 跑，保证写入 data/app.db 的权限一致
+User=www-data
+Group=www-data
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node --use-system-ca --import tsx scripts/sync-github-stars.mjs
+StandardOutput=append:/var/log/xiaomo-stars.log
+StandardError=append:/var/log/xiaomo-stars.log

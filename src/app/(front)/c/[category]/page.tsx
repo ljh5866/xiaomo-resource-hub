@@ -13,6 +13,7 @@ import {
   countResources,
   listTagsByKind,
   listTagsOfKind,
+  listWeeklyHotRepos,
 } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -95,7 +96,7 @@ export default async function CategoryPage({
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const page = Math.min(Math.max(1, Number(pageRaw) || 1), totalPages);
 
-  const [items, filterItems] = await Promise.all([
+  const [itemsRaw, filterItems] = await Promise.all([
     listResources({
       categorySlug: category,
       gameSlug: filter?.param === "game" ? game : undefined,
@@ -111,6 +112,9 @@ export default async function CategoryPage({
         : listTagsOfKind(filter.kind)
       : Promise.resolve([]),
   ]);
+
+  // 「本周热门」是按 star 周增量实时算的，单独走一条查询，不做分页
+  const items = hot ? await listWeeklyHotRepos(24) : itemsRaw;
 
   return (
     <div className="container-page py-8 lg:py-12">
@@ -145,8 +149,8 @@ export default async function CategoryPage({
               {current.description ?? "该分类下的全部资源，按更新时间排序。"}
             </p>
             <p className="mt-3 font-mono text-[11px] tracking-wide text-dim">
-              共 {total} 项
-              {totalPages > 1 && ` · 第 ${page} / ${totalPages} 页`}
+              {hot ? `${items.length} 个项目 · 按最近 7 天 star 增长排序` : `共 ${total} 项`}
+              {!hot && totalPages > 1 && ` · 第 ${page} / ${totalPages} 页`}
             </p>
           </header>
 
@@ -198,12 +202,14 @@ export default async function CategoryPage({
             </div>
           )}
 
-          <Pagination
-            page={page}
-            totalPages={totalPages}
-            basePath={`/c/${category}`}
-            query={{ game, genre }}
-          />
+          {!hot && (
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              basePath={`/c/${category}`}
+              query={{ game, genre }}
+            />
+          )}
         </div>
       </div>
     </div>
