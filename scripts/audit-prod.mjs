@@ -9,11 +9,18 @@ import { chromium } from "playwright-core";
 
 const FRONT = (process.env.FRONT ?? "https://ttals.com").replace(/\/$/, "");
 const ADMIN = (process.env.ADMIN ?? "https://admin.ttals.com").replace(/\/$/, "");
-const EMAIL = process.env.AUDIT_EMAIL ?? "adminljh@ttals.com";
-const PASSWORD = process.env.AUDIT_PASS ?? "ljhopLJHytres";
+const EMAIL = process.env.AUDIT_EMAIL ?? "";
+const PASSWORD = process.env.AUDIT_PASS ?? "";
 
 const rows = [];
 const add = (area, name, ok, detail = "") => rows.push({ area, name, ok, detail });
+
+if (!EMAIL || !PASSWORD) {
+  console.error(
+    "需要后台账号：AUDIT_EMAIL=... AUDIT_PASS=... node scripts/audit-prod.mjs（凭据不写进仓库）",
+  );
+  process.exit(2);
+}
 
 async function status(url) {
   try {
