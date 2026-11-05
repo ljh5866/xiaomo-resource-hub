@@ -44,13 +44,13 @@ const CATEGORIES: [slug: string, name: string, icon: string, description: string
     ],
   ];
 
-const TAGS: [slug: string, name: string][] = [
+const TAGS: [slug: string, name: string, kind?: string][] = [
   // 游戏标签：不同游戏各自的 MOD 都靠它归类
-  ["minecraft", "我的世界"],
-  ["windows", "Windows"],
-  ["mac", "macOS"],
-  ["android", "Android"],
-  ["linux", "Linux"],
+  ["minecraft", "我的世界", "game"],
+  ["windows", "Windows", "platform"],
+  ["mac", "macOS", "platform"],
+  ["android", "Android", "platform"],
+  ["linux", "Linux", "platform"],
   ["green", "绿色免安装"],
   ["portable", "便携版"],
   ["chinese", "汉化"],
@@ -120,12 +120,12 @@ for (const row of all<{ id: number; slug: string }>("SELECT id, slug FROM catego
 
 /* ---------- 标签 ---------- */
 let tagAdded = 0;
-for (const [slug, name] of TAGS) {
+for (const [slug, name, kind = "other"] of TAGS) {
   const exists = all<{ n: number }>("SELECT COUNT(*) AS n FROM tags WHERE slug = ?", slug)[0]?.n;
   if (exists) {
-    run("UPDATE tags SET name = ? WHERE slug = ?", name, slug);
+    run("UPDATE tags SET name = ?, kind = ? WHERE slug = ?", name, kind, slug);
   } else {
-    run("INSERT INTO tags (slug, name, use_count) VALUES (?, ?, 0)", slug, name);
+    run("INSERT INTO tags (slug, name, use_count, kind) VALUES (?, ?, 0, ?)", slug, name, kind);
     tagAdded += 1;
   }
 }

@@ -1,6 +1,13 @@
 "use server";
 
-import { deleteTag, mergeTags, renameTag, updateCategory } from "./taxonomy";
+import {
+  createTag,
+  deleteTag,
+  mergeTags,
+  renameTag,
+  setTagKind,
+  updateCategory,
+} from "./taxonomy";
 
 /**
  * 表单包装层：只负责把 FormData 拆成参数。
@@ -36,4 +43,18 @@ export async function deleteTagForm(formData: FormData) {
   const id = Number(formData.get("id"));
   if (!Number.isFinite(id)) return;
   await deleteTag(id);
+}
+
+export async function tagKindForm(formData: FormData) {
+  const id = Number(formData.get("id"));
+  if (!Number.isFinite(id)) return;
+  await setTagKind(id, String(formData.get("kind") ?? "other"));
+}
+
+export async function newTagForm(formData: FormData) {
+  await createTag(
+    String(formData.get("slug") ?? ""),
+    String(formData.get("name") ?? ""),
+    String(formData.get("kind") ?? "game"),
+  );
 }

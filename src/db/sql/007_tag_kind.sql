@@ -1,0 +1,2 @@
+﻿ALTER TABLE tags ADD COLUMN kind TEXT NOT NULL DEFAULT 'other';
+CREATE INDEX IF NOT EXISTS idx_tags_kind ON tags (kind);

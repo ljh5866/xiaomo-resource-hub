@@ -3,7 +3,9 @@ import {
   categoryForm,
   deleteTagForm,
   mergeTagForm,
+  newTagForm,
   renameTagForm,
+  tagKindForm,
 } from "@/lib/admin/taxonomy-forms";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +19,7 @@ type Cat = {
   count: number;
 };
 
-type Tag = { id: number; name: string; slug: string; useCount: number };
+type Tag = { id: number; name: string; slug: string; useCount: number; kind: string };
 
 const cellInput =
   "min-h-9 border border-line bg-surface-2 px-2 text-[13px] text-ink outline-none focus:border-accent";
@@ -31,7 +33,8 @@ export default async function AdminTaxonomyPage() {
   );
 
   const tags = all<Tag>(
-    `SELECT id, name, slug, use_count AS useCount FROM tags ORDER BY use_count DESC, id LIMIT 200`,
+    `SELECT id, name, slug, use_count AS useCount, kind FROM tags
+     ORDER BY (kind = 'game') DESC, use_count DESC, id LIMIT 200`,
   );
 
   return (
@@ -116,6 +119,32 @@ export default async function AdminTaxonomyPage() {
           </p>
         </div>
 
+        <form action={newTagForm} className="mt-4 flex flex-wrap items-end gap-2 border border-dashed border-line p-3">
+          <div>
+            <label className="block text-[11px] text-dim">名称</label>
+            <input name="name" placeholder="只狼" className={cellInput + " w-[140px]"} />
+          </div>
+          <div>
+            <label className="block text-[11px] text-dim">slug</label>
+            <input name="slug" placeholder="sekiro" className={cellInput + " w-[120px] font-mono"} />
+          </div>
+          <div>
+            <label className="block text-[11px] text-dim">类型</label>
+            <select name="kind" defaultValue="game" className="min-h-9 border border-line bg-surface-2 px-2 text-[13px] text-ink">
+              <option value="game">游戏</option>
+              <option value="platform">平台</option>
+              <option value="other">其它</option>
+            </select>
+          </div>
+          <button
+            type="submit"
+            className="min-h-9 cursor-pointer bg-ink px-3 text-[12px] text-white transition-opacity hover:opacity-90"
+          >
+            新增标签
+          </button>
+          <span className="text-[11px] text-dim">游戏类型会出现在分类页的筛选条里</span>
+        </form>
+
         <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2">
           {tags.map((t) => (
             <div key={t.id} className="flex flex-wrap items-center gap-2 border border-line p-2">
@@ -132,6 +161,26 @@ export default async function AdminTaxonomyPage() {
                   className="min-h-9 cursor-pointer border border-line px-2 text-[12px] text-muted transition-colors hover:border-accent hover:text-accent"
                 >
                   改名
+                </button>
+              </form>
+
+              <form action={tagKindForm} className="flex items-center gap-1">
+                <input type="hidden" name="id" value={t.id} />
+                <select
+                  name="kind"
+                  defaultValue={t.kind}
+                  className="min-h-9 border border-line bg-surface-2 px-1 text-[12px] text-muted"
+                  aria-label={`${t.name} 类型`}
+                >
+                  <option value="game">游戏</option>
+                  <option value="platform">平台</option>
+                  <option value="other">其它</option>
+                </select>
+                <button
+                  type="submit"
+                  className="min-h-9 cursor-pointer border border-line px-2 text-[12px] text-muted transition-colors hover:border-accent hover:text-accent"
+                >
+                  设定
                 </button>
               </form>
 

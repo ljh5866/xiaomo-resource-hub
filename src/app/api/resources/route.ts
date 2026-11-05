@@ -15,11 +15,12 @@ export async function GET(req: Request) {
   const sp = new URL(req.url).searchParams;
 
   const category = sp.get("category")?.trim() || undefined;
+  const game = sp.get("game")?.trim() || undefined;
   const offset = Math.max(0, Number(sp.get("offset") ?? 0) || 0);
   const limit = Math.min(24, Math.max(1, Number(sp.get("limit") ?? 12) || 12));
 
-  const items = await listResources({ categorySlug: category, limit, offset });
-  const total = await countResources({ categorySlug: category });
+  const items = await listResources({ categorySlug: category, gameSlug: game, limit, offset });
+  const total = await countResources({ categorySlug: category, gameSlug: game });
 
   const nextOffset = offset + items.length < total ? offset + items.length : null;
 

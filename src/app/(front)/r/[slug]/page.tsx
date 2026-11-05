@@ -76,7 +76,7 @@ export default async function ResourcePage({
   const data = await getResourceBySlug(slug);
   if (!data) notFound();
 
-  const { resource, category, links, tags } = data;
+  const { resource, category, links, tags, gameTag } = data;
   const platforms = JSON.parse(resource.platforms || "[]") as string[];
 
   const primary = links.find((l) => l.isPrimary) ?? links[0];
@@ -204,6 +204,18 @@ export default async function ResourcePage({
                 ))}
             </div>
           </section>
+
+          {/* 所属游戏 */}
+          {gameTag && (
+            <div className="mt-8 flex flex-wrap items-center gap-2">
+              <span className="text-[12px] text-dim">游戏</span>
+              <Link href={`/c/mods?game=${gameTag.slug}`} className="group">
+                <Chip className="h-8 px-3 transition-colors group-hover:border-accent group-hover:text-accent">
+                  {gameTag.name}
+                </Chip>
+              </Link>
+            </div>
+          )}
 
           {/* 标签 */}
           {tags.length > 0 && (

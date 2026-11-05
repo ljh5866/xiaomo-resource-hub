@@ -32,7 +32,6 @@ export function CategoryFilter({
         initialItems={items}
         initialTotal={total}
         categorySlug={categorySlug}
-        platformFilter
       />
     </>
   );

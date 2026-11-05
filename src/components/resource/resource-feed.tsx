@@ -1,32 +1,28 @@
 "use client";
 
 import { useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { ResourceCard, type ResourceCardData } from "./resource-card";
 
 /**
  * 列表 + 「加载更多」。
  *
- * 首屏由服务端静态渲染（SSG），后续页走 /api/resources?offset=…
- * ——这样列表页不会因为分页参数变成动态渲染。
+ * 首屏由服务端渲染，后续页走 /api/resources?offset=…&game=…
+ * 切换游戏时页面会用 key 重建本组件，所以这里不需要监听参数变化。
  */
 export function ResourceFeed({
   initialItems,
   initialTotal,
   categorySlug,
-  platformFilter = false,
+  gameSlug,
   pageSize = 12,
 }: {
   initialItems: ResourceCardData[];
   initialTotal: number;
   categorySlug?: string;
-  platformFilter?: boolean;
+  gameSlug?: string;
   pageSize?: number;
 }) {
-  const params = useSearchParams();
-  const platform = platformFilter ? (params.get("platform") ?? "") : "";
-
   const [items, setItems] = useState<ResourceCardData[]>(initialItems);
   const [total, setTotal] = useState(initialTotal);
   const [nextOffset, setNextOffset] = useState<number | null>(
@@ -35,26 +31,22 @@ export function ResourceFeed({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const shown = platform ? items.filter((r) => (r.platforms ?? []).includes(platform)) : items;
-
   async function loadMore() {
     if (nextOffset === null || loading) return;
     setLoading(true);
     setError(null);
 
     try {
-      const qs = new URLSearchParams({
-        offset: String(nextOffset),
-        limit: String(pageSize),
-      });
+      const qs = new URLSearchParams({ offset: String(nextOffset), limit: String(pageSize) });
       if (categorySlug) qs.set("category", categorySlug);
+      if (gameSlug) qs.set("game", gameSlug);
 
       const res = await fetch(`/api/resources?${qs.toString()}`);
       const json = (await res.json()) as {
         ok: boolean;
         total: number;
         nextOffset: number | null;
-        items: (ResourceCardData & { updatedAt: number | null })[];
+        items: ResourceCardData[];
         message?: string;
       };
 
@@ -75,9 +67,14 @@ export function ResourceFeed({
 
   return (
     <>
-      {shown.length === 0 ? (
-        <div className="mt-8 border border-dashed border-line p-12 text-center">
-          {total === 0 && !platform ? (
+      {items.length === 0 ? (
+        <div className="border border-dashed border-line p-12 text-center">
+          {gameSlug ? (
+            <>
+              <p className="font-sans text-[18px] font-semibold text-ink">这个游戏下还没有资源</p>
+              <p className="mx-auto mt-2 max-w-sm text-[13px] text-muted">换一个游戏，或者看看全部。</p>
+            </>
+          ) : (
             <>
               <p className="font-sans text-[18px] font-semibold text-ink">这里还没有内容</p>
               <p className="mx-auto mt-2 max-w-sm text-[13px] leading-relaxed text-muted">
@@ -88,18 +85,11 @@ export function ResourceFeed({
                 推荐给我。
               </p>
             </>
-          ) : (
-            <>
-              <p className="font-sans text-[18px] font-semibold text-ink">这个筛选下没有资源</p>
-              <p className="mx-auto mt-2 max-w-sm text-[13px] text-muted">
-                换一个平台，或者看看全部。
-              </p>
-            </>
           )}
         </div>
       ) : (
-        <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {shown.map((r) => (
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+          {items.map((r) => (
             <ResourceCard key={r.code} data={r} />
           ))}
         </div>
@@ -108,8 +98,7 @@ export function ResourceFeed({
       {total > 0 && (
         <div className="mt-8 flex flex-col items-center gap-2">
           <p className="font-mono text-[11px] text-dim">
-            已显示 {shown.length}
-            {platform ? "" : ` / 共 ${total}`} 项
+            已显示 {items.length} / 共 {total} 项
           </p>
 
           {error && <p className="text-[12px] text-danger">{error}</p>}
@@ -119,13 +108,13 @@ export function ResourceFeed({
               type="button"
               onClick={loadMore}
               disabled={loading}
-              className="inline-flex min-h-11 cursor-pointer items-center gap-2 border border-line-strong px-6 text-[13px] text-ink transition-colors hover:border-accent hover:text-accent disabled:cursor-wait disabled:opacity-60"
+              className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-[10px] border border-line-strong px-6 text-[13px] text-ink transition-colors hover:border-accent hover:text-accent disabled:cursor-wait disabled:opacity-60"
             >
               {loading && <Loader2 className="size-3.5 animate-spin" strokeWidth={1.5} aria-hidden />}
               {loading ? "加载中…" : "加载更多"}
             </button>
           ) : (
-            shown.length > pageSize && (
+            items.length > pageSize && (
               <p className="font-mono text-[11px] text-dim">—— 没有更多了 ——</p>
             )
           )}

@@ -2,18 +2,14 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { CategoryRail } from "@/components/layout/category-rail";
-import { CategoryChips, platformKeysOf } from "@/components/resource/category-chips";
-import { CategoryFilter } from "@/components/resource/category-filter";
+import { GameChips } from "@/components/resource/game-chips";
+import { ResourceFeed } from "@/components/resource/resource-feed";
 import { JsonLd } from "@/components/seo/json-ld";
 import { breadcrumbJsonLd, collectionJsonLd } from "@/lib/seo";
 import { CardGridSkeleton } from "@/components/ui/skeleton";
-import { listCategories, listResources, countResources } from "@/lib/queries";
+import { listCategories, listResources, countResources, listGameTags } from "@/lib/queries";
 
-export const revalidate = 600;
-
-export async function generateStaticParams() {
-  return (await listCategories()).map((c) => ({ category: c.slug }));
-}
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
@@ -46,19 +42,23 @@ export async function generateMetadata({
 
 export default async function CategoryPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ category: string }>;
+  searchParams: Promise<{ game?: string }>;
 }) {
   const { category } = await params;
+  const { game } = await searchParams;
 
   const categories = await listCategories();
   const current = categories.find((c) => c.slug === category);
   if (!current) notFound();
 
   const PAGE_SIZE = 24;
-  const [items, total] = await Promise.all([
-    listResources({ categorySlug: category, limit: PAGE_SIZE }),
-    countResources({ categorySlug: category }),
+  const [items, total, games] = await Promise.all([
+    listResources({ categorySlug: category, gameSlug: game, limit: PAGE_SIZE }),
+    countResources({ categorySlug: category, gameSlug: game }),
+    listGameTags(category),
   ]);
 
   return (
@@ -100,26 +100,24 @@ export default async function CategoryPage({
 
           <Suspense
             fallback={
-              // 与客户端组件同结构、同高度：避免 hydration 时把下面的内容顶下去（CLS）
               <>
-                <CategoryChips
-                  categorySlug={category}
-                  platformKeys={platformKeysOf(items)}
-                  active=""
-                />
+                <GameChips categorySlug={category} games={games} active={game ?? ""} />
                 <div className="mt-8">
                   <CardGridSkeleton count={Math.min(items.length, 9)} />
-                </div>
-                <div className="mt-8 flex flex-col items-center gap-2">
-                  <span className="font-mono text-[11px] text-dim">
-                    已显示 {items.length} / 共 {total} 项
-                  </span>
-                  <span className="min-h-11" aria-hidden />
                 </div>
               </>
             }
           >
-            <CategoryFilter items={items} total={total} categorySlug={category} />
+            <GameChips categorySlug={category} games={games} active={game ?? ""} />
+            <div className="mt-8">
+              <ResourceFeed
+                key={`${category}-${game ?? "all"}`}
+                initialItems={items}
+                initialTotal={total}
+                categorySlug={category}
+                gameSlug={game}
+              />
+            </div>
           </Suspense>
         </div>
       </div>

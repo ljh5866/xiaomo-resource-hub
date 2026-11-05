@@ -1,4 +1,4 @@
-﻿"use server";
+"use server";
 
 import { get, run } from "@/db/client";
 import { requireAdmin } from "@/lib/auth";
@@ -43,6 +43,29 @@ export async function updateCategory(
 }
 
 /* ---------------- 标签 ---------------- */
+
+/** 设置标签类型：game（游戏）/ platform（平台）/ other（其它）。游戏类型会出现在分类页筛选条。 */
+export async function setTagKind(id: number, kind: string): Promise<ActionResult> {
+  const denied = await guard();
+  if (denied) return denied;
+  if (!["game", "platform", "other"].includes(kind)) return { ok: false, message: "类型不合法" };
+  const row = get<{ id: number }>("SELECT id FROM tags WHERE id = ?", id);
+  if (!row) return { ok: false, message: "标签不存在" };
+  run("UPDATE tags SET kind = ? WHERE id = ?", kind, id);
+  return { ok: true, message: "已更新" };
+}
+
+/** 新建标签（后台加游戏时用） */
+export async function createTag(slug: string, name: string, kind = "game"): Promise<ActionResult> {
+  const denied = await guard();
+  if (denied) return denied;
+  const s = slug.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
+  const n = name.trim();
+  if (!s || !n) return { ok: false, message: "slug 与名称都要填" };
+  if (get("SELECT id FROM tags WHERE slug = ?", s)) return { ok: false, message: "slug 已存在" };
+  run("INSERT INTO tags (slug, name, use_count, kind) VALUES (?,?,0,?)", s, n, kind);
+  return { ok: true, message: `已新增「${n}」` };
+}
 
 export async function renameTag(id: number, name: string): Promise<ActionResult> {
   const denied = await guard();
