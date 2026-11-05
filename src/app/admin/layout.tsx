@@ -5,6 +5,7 @@ import { LogOut } from "lucide-react";
 import { getSessionUser, requireAdmin } from "@/lib/auth";
 import { SessionRevoked } from "@/components/auth/session-revoked";
 import { AdminNav, type NavGroup } from "@/components/admin/admin-nav";
+import { RefreshCacheButton } from "@/components/admin/refresh-cache-button";
 
 export const metadata: Metadata = {
   title: "控制台",
@@ -86,6 +87,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             </span>
 
             <div className="ml-auto flex items-center gap-2">
+              <RefreshCacheButton />
               <Link
                 href="/"
                 target="_blank"

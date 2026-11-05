@@ -11,7 +11,8 @@ import { Chip } from "@/components/ui/chip";
 import { getSiteStats, listCategories, listResources, listTags } from "@/lib/queries";
 import { formatCount } from "@/lib/utils";
 
-export const revalidate = 600;
+// 首页计数来自数据库：60s 内自更新，后台也能点「刷新缓存」立即生效
+export const revalidate = 60;
 
 export default async function HomePage() {
   const [categories, featured, latest, stats, tags] = await Promise.all([

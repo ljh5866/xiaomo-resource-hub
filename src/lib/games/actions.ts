@@ -67,6 +67,7 @@ export async function bulkGameAction(_prev: BulkState, formData: FormData): Prom
   if (!res.ok) return { ok: false, message: res.message, preview: brief };
 
   revalidatePath("/admin/games");
+  revalidatePath("/");
   revalidatePath("/c/mods");
 
   return {
