@@ -5,6 +5,7 @@ import { get, run } from "@/db/client";
 import { hashPassword } from "@/lib/password";
 import { hit } from "@/lib/rate-limit";
 import { registrationOpen } from "@/lib/flags";
+import { verifyCode } from "@/lib/auth/email-code";
 
 export type RegisterResult = { ok: true; message: string } | { ok: false; message: string };
 
@@ -28,6 +29,7 @@ export async function registerAccount(input: {
   password: string;
   password2: string;
   name?: string;
+  code: string;
 }): Promise<RegisterResult> {
   if (!registrationOpen()) {
     return { ok: false, message: "站点当前关闭了注册，请联系管理员开通账号" };
@@ -41,6 +43,12 @@ export async function registerAccount(input: {
 
   const problem = passwordProblem(input.password);
   if (problem) return { ok: false, message: problem };
+
+  // 邮箱验证码：先验码，再建号（避免刷库）
+  if (!/^\d{6}$/.test(input.code.trim())) return { ok: false, message: "请输入 6 位验证码" };
+
+  const codeCheck = await verifyCode(email, input.code);
+  if (!codeCheck.ok) return { ok: false, message: codeCheck.message };
 
   // 防刷：同 IP 每小时 5 次、同邮箱每小时 3 次
   const ip = await clientIp();

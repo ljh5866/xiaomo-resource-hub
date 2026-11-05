@@ -86,7 +86,7 @@ console.log(`\n启动临时服务 :${PORT} ...`);
 const logFile = "verify-server.log";
 const logFd = (await import("node:fs")).openSync(logFile, "w");
 server = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(PORT)], {
-  env: { ...process.env, PORT: String(PORT), NODE_ENV: "production" },
+  env: { ...process.env, PORT: String(PORT), NODE_ENV: "production", EMAIL_DEV_MODE: "1" },
   stdio: ["ignore", logFd, logFd],
   shell: false,
 });

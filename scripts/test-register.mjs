@@ -2,6 +2,7 @@
  * 注册系统验收：注册 → 登录 → 收藏 → 后台可见 → 封禁后登录失败
  * 用法：node scripts/test-register.mjs
  */
+import fs from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { BASE, CREDENTIALS, launch } from "./lib/browser.mjs";
 
@@ -14,9 +15,25 @@ const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } })
 const page = await ctx.newPage();
 const log = [];
 
-/* 1. 注册 */
+/* 1. 注册（需要邮箱验证码：开发模式把码写到 data/.dev-emails.log） */
 await page.goto(`${BASE}/register`, { waitUntil: "domcontentloaded" });
 await page.locator("#email").fill(email);
+
+await page.getByRole("button", { name: /获取验证码/ }).click();
+await page.waitForTimeout(2000);
+
+const devLog = fs.existsSync("data/.dev-emails.log")
+  ? fs.readFileSync("data/.dev-emails.log", "utf8")
+  : "";
+const codeLine = devLog
+  .trim()
+  .split("\n")
+  .filter((l) => l.includes(email))
+  .pop();
+const code = codeLine?.split("\t")[2]?.trim() ?? "";
+log.push({ step: "code", found: code.length === 6 });
+
+await page.locator("#code").fill(code);
 await page.locator("#name").fill("注册测试");
 await page.locator("#password").fill(password);
 await page.locator("#password2").fill(password);
