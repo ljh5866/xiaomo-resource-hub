@@ -95,23 +95,35 @@ export function LinkRow({
       </p>
 
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={(e) => {
-            // 按钮不承担任何导航职责：显式阻止冒泡与默认行为
-            e.preventDefault();
-            e.stopPropagation();
-            void copy();
-          }}
-          className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 border border-line text-[13px] text-muted transition-colors hover:border-accent hover:text-accent"
-        >
-          {copied ? (
-            <Check className="size-3.5 text-ok" strokeWidth={2} aria-hidden />
-          ) : (
+        {loggedIn ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              // 按钮不承担任何导航职责：显式阻止冒泡与默认行为
+              e.preventDefault();
+              e.stopPropagation();
+              void copy();
+            }}
+            className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 border border-line text-[13px] text-muted transition-colors hover:border-accent hover:text-accent"
+          >
+            {copied ? (
+              <Check className="size-3.5 text-ok" strokeWidth={2} aria-hidden />
+            ) : (
+              <Copy className="size-3.5" strokeWidth={1.5} aria-hidden />
+            )}
+            {copied ? "已复制" : "复制"}
+          </button>
+        ) : (
+          // 复制同样要登录：未登录直接去登录页，登录后回到本页
+          <Link
+            href={loginHref}
+            title="登录后可复制下载地址"
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 border border-line text-[13px] text-muted transition-colors hover:border-accent hover:text-accent"
+          >
             <Copy className="size-3.5" strokeWidth={1.5} aria-hidden />
-          )}
-          {copied ? "已复制" : "复制"}
-        </button>
+            复制
+          </Link>
+        )}
 
         {dead ? (
           <button
