@@ -59,6 +59,8 @@ for (const r of rows) {
     const incoming = Array.isArray(r.links) ? r.links.filter((l) => l.provider && l.provider !== "self") : [];
     if (!hasPan && incoming.length) {
       const { createHash } = await import("node:crypto");
+      db.prepare("UPDATE resource_links SET is_primary = 0 WHERE resource_id = ?").run(exists.id);
+
       const ins = db.prepare(
         `INSERT INTO resource_links (resource_id, url, url_hash, provider, extract_code, label, is_primary, status, created_at)
          VALUES (?,?,?,?,?,?,?,'unknown',unixepoch())`,
@@ -130,6 +132,9 @@ for (const r of rows) {
     const links = Array.isArray(r.links) && r.links.length
       ? r.links
       : [{ url: r.sourceUrl, provider: "self", label: "源站", primary: true }];
+
+    // 先把旧的 primary 清掉，避免同一资源出现两条主链接（列表会被乘成两张卡）
+    db.prepare("UPDATE resource_links SET is_primary = 0 WHERE resource_id = ?").run(rid);
 
     const ins = db.prepare(
       `INSERT INTO resource_links (resource_id, url, url_hash, provider, extract_code, label, is_primary, status, created_at)

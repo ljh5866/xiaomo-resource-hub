@@ -54,7 +54,10 @@ const CARD_SELECT = `
          c.name AS categoryName, l.provider, l.status AS linkStatus
   FROM resources r
   JOIN categories c ON c.id = r.category_id
-  LEFT JOIN resource_links l ON l.resource_id = r.id AND l.is_primary = 1
+  LEFT JOIN resource_links l ON l.id = (
+         SELECT id FROM resource_links
+          WHERE resource_id = r.id AND is_primary = 1
+          ORDER BY (provider <> 'self') DESC, id LIMIT 1)
 `;
 
 /* ------------------------------------------------------------------ */
@@ -393,7 +396,10 @@ export async function listAdminRows(limit = 50) {
             c.name AS categoryName, l.status AS linkStatus
      FROM resources r
      JOIN categories c ON c.id = r.category_id
-     LEFT JOIN resource_links l ON l.resource_id = r.id AND l.is_primary = 1
+     LEFT JOIN resource_links l ON l.id = (
+         SELECT id FROM resource_links
+          WHERE resource_id = r.id AND is_primary = 1
+          ORDER BY (provider <> 'self') DESC, id LIMIT 1)
      ORDER BY r.updated_at DESC
      LIMIT ?`,
     limit,

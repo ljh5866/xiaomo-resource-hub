@@ -36,6 +36,15 @@ const dupLinks = db
   )
   .all();
 
+/* 2.5 多条 primary */
+const multiPrimary = db
+  .prepare(
+    `SELECT resource_id, COUNT(*) n, GROUP_CONCAT(id) ids
+       FROM resource_links WHERE is_primary = 1
+      GROUP BY resource_id HAVING n > 1`,
+  )
+  .all();
+
 /* 3. 多条源站 */
 const multiSelf = db
   .prepare(
@@ -45,7 +54,9 @@ const multiSelf = db
   )
   .all();
 
-console.log(`\n重复链接：${dupLinks.length} 组 ｜ 多条源站：${multiSelf.length} 组`);
+console.log(
+  `\n重复链接：${dupLinks.length} 组 ｜ 多条 primary：${multiPrimary.length} 组 ｜ 多条源站：${multiSelf.length} 组`,
+);
 
 let removedResources = 0;
 let removedLinks = 0;
@@ -74,6 +85,19 @@ if (fix) {
         db.prepare("DELETE FROM resource_links WHERE id = ?").run(id);
         removedLinks++;
       }
+    }
+
+    // 多条 primary：保留一条（优先非 self，其次 id 最小）
+    for (const d of multiPrimary) {
+      const rows = db
+        .prepare("SELECT id, provider FROM resource_links WHERE resource_id = ? AND is_primary = 1 ORDER BY (provider = 'self'), id")
+        .all(d.resource_id);
+      const keep = rows[0];
+      for (const row of rows.slice(1)) {
+        db.prepare("UPDATE resource_links SET is_primary = 0 WHERE id = ?").run(row.id);
+        removedLinks++;
+      }
+      if (keep) db.prepare("UPDATE resource_links SET is_primary = 1 WHERE id = ?").run(keep.id);
     }
 
     // 多条源站
