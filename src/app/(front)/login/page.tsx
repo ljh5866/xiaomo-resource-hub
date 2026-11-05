@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { LoginForm } from "@/components/auth/login-form";
@@ -21,8 +22,16 @@ export default async function LoginPage({
   const { next, registered, email } = await searchParams;
   const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : undefined;
 
+  // 后台子域名下，登录后应该回后台首页（"/" 会被 middleware 重写到 /admin），
+  // 而不是前台的 /favorites —— 否则会落到 /admin/favorites 这个不存在的页面
+  const h = await headers();
+  const host = (h.get("host") ?? "").toLowerCase().split(":")[0];
+  const adminHost = (process.env.ADMIN_HOST ?? "").toLowerCase().split(":")[0];
+  const onAdminHost = Boolean(adminHost) && host === adminHost;
+  const fallback = onAdminHost ? "/" : "/favorites";
+
   const user = await getSessionUser();
-  if (user) redirect(safeNext ?? (user.role === "admin" ? "/admin" : "/favorites"));
+  if (user) redirect(safeNext ?? (user.role === "admin" ? (onAdminHost ? "/" : "/admin") : fallback));
 
   return (
     <div className="container-page grid place-items-center py-20">
@@ -44,7 +53,7 @@ export default async function LoginPage({
           )}
 
           <Suspense fallback={null}>
-            <LoginForm next={safeNext ?? "/favorites"} defaultEmail={email} />
+            <LoginForm next={safeNext ?? fallback} defaultEmail={email} />
           </Suspense>
         </div>
 
