@@ -47,6 +47,15 @@ const CATEGORIES: [slug: string, name: string, icon: string, description: string
 const TAGS: [slug: string, name: string, kind?: string][] = [
   // 游戏标签：不同游戏各自的 MOD 都靠它归类
   ["minecraft", "我的世界", "game"],
+
+  // 游戏类型（热门游戏分类下的筛选条）
+  ["galgame", "Galgame", "genre"],
+  ["horror", "恐怖", "genre"],
+  ["competitive", "竞技", "genre"],
+  ["survival", "生存", "genre"],
+  ["story", "故事", "genre"],
+  ["management", "经营", "genre"],
+  ["misc", "其他", "genre"],
   ["windows", "Windows", "platform"],
   ["mac", "macOS", "platform"],
   ["android", "Android", "platform"],

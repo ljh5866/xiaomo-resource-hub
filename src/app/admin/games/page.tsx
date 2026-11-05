@@ -53,6 +53,15 @@ export default async function AdminGamesPage() {
        FROM categories c ORDER BY c.sort_order, c.id`,
   );
 
+  const genres = all<{ id: number; slug: string; name: string; count: number }>(
+    `SELECT t.id, t.slug, t.name, COUNT(rt.resource_id) AS count
+       FROM tags t
+       LEFT JOIN resource_tags rt ON rt.tag_id = t.id
+      WHERE t.kind = 'genre'
+      GROUP BY t.id
+      ORDER BY t.id`,
+  );
+
   const candidates = all<{ id: number; slug: string; name: string; count: number }>(
     `SELECT t.id, t.slug, t.name, COUNT(rt.resource_id) AS count
        FROM tags t
@@ -214,6 +223,62 @@ export default async function AdminGamesPage() {
           games={games.map((g) => ({ slug: g.slug, name: g.name, count: g.count }))}
           categories={categories}
         />
+      </section>
+
+      {/* 游戏类型（热门游戏分类的筛选条） */}
+      <section>
+        <div className="border-b border-line pb-3">
+          <h2 className="text-[16px] font-semibold text-ink">游戏类型</h2>
+          <p className="mt-1 text-[11px] text-dim">
+            出现在「热门游戏」分类的筛选条：Galgame / 恐怖 / 竞技 / 生存 / 故事 / 经营 / 其他
+          </p>
+        </div>
+
+        <form action={newTagForm} className="mt-3 flex flex-wrap items-end gap-2 rounded-[8px] border border-dashed border-line p-3">
+          <div>
+            <label className="block text-[11px] text-dim">类型名称</label>
+            <input name="name" placeholder="解谜" className={cellInput + " w-[120px]"} required />
+          </div>
+          <div>
+            <label className="block text-[11px] text-dim">slug</label>
+            <input name="slug" placeholder="puzzle" className={cellInput + " w-[110px] font-mono"} required />
+          </div>
+          <input type="hidden" name="kind" value="genre" />
+          <button
+            type="submit"
+            className="min-h-9 cursor-pointer rounded-[6px] bg-ink px-3 text-[12px] font-medium text-white transition-opacity hover:opacity-90"
+          >
+            新增类型
+          </button>
+        </form>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          {genres.map((g) => (
+            <div key={g.id} className="flex items-center gap-1 rounded-[6px] border border-line px-2 py-1">
+              <form action={renameTagForm} className="flex items-center gap-1">
+                <input type="hidden" name="id" value={g.id} />
+                <input
+                  name="name"
+                  defaultValue={g.name}
+                  className={cellInput + " w-[96px]"}
+                  aria-label={`${g.name} 名称`}
+                />
+                <button type="submit" className="cursor-pointer text-[11px] text-accent hover:underline">
+                  改名
+                </button>
+              </form>
+              <span className="font-mono text-[10px] text-dim">×{g.count}</span>
+              {g.count === 0 && (
+                <form action={deleteTagForm}>
+                  <input type="hidden" name="id" value={g.id} />
+                  <button type="submit" className="cursor-pointer text-[11px] text-dim hover:text-danger">
+                    删除
+                  </button>
+                </form>
+              )}
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* 待归类 */}

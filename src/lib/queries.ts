@@ -88,19 +88,24 @@ export async function listResources(
   opts: {
     categorySlug?: string;
     gameSlug?: string;
+    genreSlug?: string;
     featured?: boolean;
     excludeFeatured?: boolean;
     limit?: number;
     offset?: number;
   } = {},
 ): Promise<ResourceCardData[]> {
-  const { categorySlug, gameSlug, featured, excludeFeatured, limit = 12, offset = 0 } = opts;
+  const { categorySlug, gameSlug, genreSlug, featured, excludeFeatured, limit = 12, offset = 0 } = opts;
   const where: string[] = ["r.status = 'published'"];
   const params: (string | number)[] = [];
 
   if (gameSlug) {
     where.push("EXISTS (SELECT 1 FROM resource_tags rt JOIN tags t ON t.id = rt.tag_id WHERE rt.resource_id = r.id AND t.slug = ?)");
     params.push(gameSlug);
+  }
+  if (genreSlug) {
+    where.push("EXISTS (SELECT 1 FROM resource_tags rt JOIN tags t ON t.id = rt.tag_id WHERE rt.resource_id = r.id AND t.slug = ? AND t.kind = 'genre')");
+    params.push(genreSlug);
   }
 
   if (categorySlug) {
@@ -123,9 +128,9 @@ export async function listResources(
 
 /** 列表页总数：给"加载更多"判断是否还有下一页 */
 export async function countResources(
-  opts: { categorySlug?: string; gameSlug?: string } = {},
+  opts: { categorySlug?: string; gameSlug?: string; genreSlug?: string } = {},
 ): Promise<number> {
-  const { categorySlug, gameSlug } = opts;
+  const { categorySlug, gameSlug, genreSlug } = opts;
   const where = ["r.status = 'published'"];
   const params: string[] = [];
 
@@ -136,6 +141,14 @@ export async function countResources(
   if (gameSlug) {
     where.push("EXISTS (SELECT 1 FROM resource_tags rt JOIN tags t ON t.id = rt.tag_id WHERE rt.resource_id = r.id AND t.slug = ?)");
     params.push(gameSlug);
+  }
+  if (genreSlug) {
+    where.push("EXISTS (SELECT 1 FROM resource_tags rt JOIN tags t ON t.id = rt.tag_id WHERE rt.resource_id = r.id AND t.slug = ? AND t.kind = 'genre')");
+    params.push(genreSlug);
+  }
+  if (genreSlug) {
+    where.push("EXISTS (SELECT 1 FROM resource_tags rt JOIN tags t ON t.id = rt.tag_id WHERE rt.resource_id = r.id AND t.slug = ? AND t.kind = 'genre')");
+    params.push(genreSlug);
   }
 
   return (
@@ -369,6 +382,27 @@ export async function listAdminRows(limit = 50) {
   return rows.map((r) => ({ ...r, updatedAt: ts(r.updatedAt) }));
 }
 
+/** 某个分类下出现过的指定类型标签（game/genre），给分类页筛选条用 */
+export async function listTagsByKind(kind: string, categorySlug?: string) {
+  const params: string[] = [kind];
+  let where = "t.kind = ? AND r.status = 'published'";
+  if (categorySlug) {
+    where += " AND c.slug = ?";
+    params.push(categorySlug);
+  }
+  return all<{ slug: string; name: string; count: number }>(
+    `SELECT t.slug, t.name, COUNT(DISTINCT r.id) AS count
+     FROM tags t
+     JOIN resource_tags rt ON rt.tag_id = t.id
+     JOIN resources r ON r.id = rt.resource_id
+     JOIN categories c ON c.id = r.category_id
+     WHERE ${where}
+     GROUP BY t.id
+     ORDER BY count DESC, t.id`,
+    ...params,
+  );
+}
+
 /** 某个分类下出现过的游戏标签（kind='game'），给分类页筛选条用 */
 export async function listGameTags(categorySlug?: string): Promise<{ slug: string; name: string; count: number }[]> {
   const params: string[] = [];
@@ -387,5 +421,17 @@ export async function listGameTags(categorySlug?: string): Promise<{ slug: strin
      GROUP BY t.id
      ORDER BY count DESC`,
     ...params,
+  );
+}
+/** 某类标签全量（含 0 条资源的），给「类型」这种固定入口用 */
+export async function listTagsOfKind(kind: string): Promise<{ slug: string; name: string; count: number }[]> {
+  return all<{ slug: string; name: string; count: number }>(
+    `SELECT t.slug, t.name, COUNT(rt.resource_id) AS count
+       FROM tags t
+       LEFT JOIN resource_tags rt ON rt.tag_id = t.id
+      WHERE t.kind = ?
+      GROUP BY t.id
+      ORDER BY t.id`,
+    kind,
   );
 }

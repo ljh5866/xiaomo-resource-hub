@@ -1,26 +1,38 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CategoryRail } from "@/components/layout/category-rail";
-import { GameChips } from "@/components/resource/game-chips";
+import { FilterChips } from "@/components/resource/filter-chips";
 import { ResourceCard } from "@/components/resource/resource-card";
 import { Pagination } from "@/components/ui/pagination";
 import { JsonLd } from "@/components/seo/json-ld";
 import { breadcrumbJsonLd, collectionJsonLd } from "@/lib/seo";
-import { listCategories, listResources, countResources, listGameTags } from "@/lib/queries";
+import {
+  listCategories,
+  listResources,
+  countResources,
+  listTagsByKind,
+  listTagsOfKind,
+} from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 24;
+
+/** 分类 → 用哪一类标签做筛选条 */
+const FILTER_KIND: Record<string, { kind: "game" | "genre"; label: string; param: "game" | "genre" }> = {
+  mods: { kind: "game", label: "游戏", param: "game" },
+  games: { kind: "genre", label: "类型", param: "genre" },
+};
 
 export async function generateMetadata({
   params,
   searchParams,
 }: {
   params: Promise<{ category: string }>;
-  searchParams: Promise<{ page?: string; game?: string }>;
+  searchParams: Promise<{ page?: string; game?: string; genre?: string }>;
 }): Promise<Metadata> {
   const { category } = await params;
-  const { page, game } = await searchParams;
+  const { page, game, genre } = await searchParams;
   const all = await listCategories();
   const meta = all.find((c) => c.slug === category);
   if (!meta) return { title: "分类不存在" };
@@ -28,14 +40,13 @@ export async function generateMetadata({
   const p = Math.max(1, Number(page) || 1);
   const qs = new URLSearchParams();
   if (game) qs.set("game", game);
+  if (genre) qs.set("genre", genre);
   if (p > 1) qs.set("page", String(p));
-  const canonical = `/c/${meta.slug}${qs.toString() ? `?${qs}` : ""}`;
 
   return {
     title: p > 1 ? `${meta.name} · 第 ${p} 页` : meta.name,
     description: meta.description ?? `${meta.name} 分类下的全部资源，共 ${meta.count} 项。`,
-    alternates: { canonical },
-    robots: p > 1 ? { index: true, follow: true } : undefined,
+    alternates: { canonical: `/c/${meta.slug}${qs.toString() ? `?${qs}` : ""}` },
     openGraph: {
       title: `${meta.name} · 小莫资源网`,
       description: meta.description ?? undefined,
@@ -56,27 +67,39 @@ export default async function CategoryPage({
   searchParams,
 }: {
   params: Promise<{ category: string }>;
-  searchParams: Promise<{ page?: string; game?: string }>;
+  searchParams: Promise<{ page?: string; game?: string; genre?: string }>;
 }) {
   const { category } = await params;
-  const { page: pageRaw, game } = await searchParams;
+  const { page: pageRaw, game, genre } = await searchParams;
 
   const categories = await listCategories();
   const current = categories.find((c) => c.slug === category);
   if (!current) notFound();
 
-  const total = await countResources({ categorySlug: category, gameSlug: game });
+  const filter = FILTER_KIND[category];
+  const activeSlug = filter?.param === "genre" ? genre : game;
+
+  const total = await countResources({
+    categorySlug: category,
+    gameSlug: filter?.param === "game" ? game : undefined,
+    genreSlug: filter?.param === "genre" ? genre : undefined,
+  });
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const page = Math.min(Math.max(1, Number(pageRaw) || 1), totalPages);
 
-  const [items, games] = await Promise.all([
+  const [items, filterItems] = await Promise.all([
     listResources({
       categorySlug: category,
-      gameSlug: game,
+      gameSlug: filter?.param === "game" ? game : undefined,
+      genreSlug: filter?.param === "genre" ? genre : undefined,
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,
     }),
-    listGameTags(category),
+    filter
+      ? filter.kind === "genre"
+        ? listTagsOfKind("genre")
+        : listTagsByKind("game", category)
+      : Promise.resolve([]),
   ]);
 
   return (
@@ -117,16 +140,24 @@ export default async function CategoryPage({
             </p>
           </header>
 
-          <GameChips categorySlug={category} games={games} active={game ?? ""} />
+          {filter && (
+            <FilterChips
+              categorySlug={category}
+              label={filter.label}
+              param={filter.param}
+              items={filterItems}
+              active={activeSlug ?? ""}
+            />
+          )}
 
           {items.length === 0 ? (
             <div className="mt-8 rounded-[14px] border border-dashed border-line p-12 text-center">
               <p className="font-sans text-[18px] font-semibold text-ink">
-                {game ? "这个游戏下还没有资源" : "这里还没有内容"}
+                {activeSlug ? "这个筛选下还没有资源" : "这里还没有内容"}
               </p>
               <p className="mx-auto mt-2 max-w-sm text-[13px] leading-relaxed text-muted">
-                {game ? (
-                  "换一个游戏，或者看看全部。"
+                {activeSlug ? (
+                  "换一个筛选，或者看看全部。"
                 ) : (
                   <>
                     资源正在陆续上架。发现好东西的话，欢迎
@@ -150,7 +181,7 @@ export default async function CategoryPage({
             page={page}
             totalPages={totalPages}
             basePath={`/c/${category}`}
-            query={{ game }}
+            query={{ game, genre }}
           />
         </div>
       </div>
