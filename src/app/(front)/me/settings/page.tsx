@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { AvatarUploader } from "@/components/user/avatar-uploader";
 import { ProfileForms } from "@/components/user/profile-forms";
 import { SitePrefs } from "@/components/user/site-prefs";
+import { GithubSection } from "@/components/user/github-section";
 import { getSessionUser } from "@/lib/auth";
 import { get } from "@/db/client";
 
@@ -52,6 +53,10 @@ export default async function MeSettingsPage() {
           <AvatarUploader name={displayName} src={row?.avatar_url ?? null} />
         </div>
       </section>
+
+      <div className="mt-4">
+        <GithubSection userId={user.id} />
+      </div>
 
       <div className="mt-4">
         <SitePrefs />

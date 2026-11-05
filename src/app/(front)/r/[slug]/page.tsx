@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ChevronRight, Download, Tag as TagIcon } from "lucide-react";
 import { LinkRow } from "@/components/resource/link-row";
 import { FavoriteButton } from "@/components/resource/favorite-button";
+import { GithubStarButton } from "@/components/resource/github-star-button";
 import { ReportDialog } from "@/components/resource/report-dialog";
 import { JsonLd } from "@/components/seo/json-ld";
 import { breadcrumbJsonLd, resourceJsonLd } from "@/lib/seo";
@@ -279,6 +280,9 @@ export default async function ResourcePage({
                 {formatCount(resource.downloadCount)} 次下载
               </span>
               <FavoriteButton resourceId={resource.id} />
+              {(resource.sourceUrl ?? "").includes("github.com/") && (
+                <GithubStarButton resourceId={resource.id} />
+              )}
             </div>
           </div>
 

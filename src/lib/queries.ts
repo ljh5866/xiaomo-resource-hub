@@ -261,6 +261,7 @@ export type ResourceDetail = {
   viewCount: number;
   seoTitle: string | null;
   seoDesc: string | null;
+  sourceUrl: string | null;
   coverUrl: string | null;
   coverBlur: string | null;
   publishedAt: Date | null;
@@ -288,6 +289,7 @@ export async function getResourceBySlug(slug: string) {
             kind, platforms, version, size_label AS sizeLabel, language,
             license_label AS licenseLabel, download_count AS downloadCount,
             view_count AS viewCount, seo_title AS seoTitle, seo_desc AS seoDesc,
+            source_url AS sourceUrl,
             cover_url AS coverUrl, cover_blur AS coverBlur, published_at AS publishedAt,
             updated_at AS updatedAt, verified_at AS verifiedAt
      FROM resources
