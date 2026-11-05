@@ -121,7 +121,7 @@ await page.goto(loginUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
 await page.waitForTimeout(1500); // 等 React 水合，否则可能触发表单原生提交
 await page.locator('input[type="email"]').fill(EMAIL);
 await page.locator('input[type="password"]').fill(PASSWORD);
-await page.getByRole("button", { name: "登录" }).click();
+await page.getByRole("button", { name: "登录", exact: true }).click();
 await page.waitForTimeout(3000);
 
 const loggedIn = !page.url().includes("/login");

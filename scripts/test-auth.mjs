@@ -24,7 +24,7 @@ log.push({ step: "upload-guard", status: up1.status() });
 await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded" });
 await page.getByPlaceholder("you@example.com").fill(CREDENTIALS.email);
 await page.getByPlaceholder("至少 8 位").fill(CREDENTIALS.password);
-await page.getByRole("button", { name: "登录" }).click();
+await page.getByRole("button", { name: "登录", exact: true }).click();
 await page.waitForTimeout(2500);
 log.push({ step: "login", url: page.url().replace(BASE, "") });
 

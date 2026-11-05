@@ -13,7 +13,7 @@ const browser = await launch({});
   await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded" });
   await page.getByPlaceholder("you@example.com").fill(CREDENTIALS.email);
   await page.getByPlaceholder("至少 8 位").fill(CREDENTIALS.password);
-  await page.getByRole("button", { name: "登录" }).click();
+  await page.getByRole("button", { name: "登录", exact: true }).click();
   await page.waitForTimeout(2500);
   await page.goto(`${BASE}/admin/submissions`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(700);

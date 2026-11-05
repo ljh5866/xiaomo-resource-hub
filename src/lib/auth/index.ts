@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { get, run } from "@/db/client";
 import { hashPassword, needsRehash, verifyPassword } from "@/lib/password";
+import { verifyCode } from "@/lib/auth/email-code";
 import { clientKey, hit, reset } from "@/lib/rate-limit";
 import authConfig from "./config";
 
@@ -27,17 +28,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   providers: [
     Credentials({
-      name: "邮箱密码",
+      name: "邮箱密码 / 验证码",
       credentials: {
         email: { label: "邮箱", type: "email" },
         password: { label: "密码", type: "password" },
+        code: { label: "验证码", type: "text" },
       },
       async authorize(credentials, request) {
         const email = String(credentials?.email ?? "")
           .trim()
           .toLowerCase();
         const password = String(credentials?.password ?? "");
-        if (!email || !password) return null;
+        const code = String(credentials?.code ?? "").trim();
+        if (!email || (!password && !code)) return null;
 
         // 同 IP 10 分钟内最多 5 次尝试，超过锁 10 分钟
         const key = `${clientKey(request, "login")}:${email}`;
@@ -52,19 +55,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email,
         );
 
-        if (!user?.password_hash) return null;
-
-        // 只允许 active 账号登录：pending 待审核、banned 封禁都拒绝
+        // 账号必须存在，且处于 active（pending 待审核、banned 封禁都拒绝）
+        if (!user) return null;
         if ((user.status ?? "active") !== "active") return null;
-        if (!verifyPassword(password, user.password_hash)) return null;
 
-        // 老格式（bcrypt，从 Supabase 迁过来的）登录成功后顺手升级成 scrypt：
-        // 用户无感，下次登录就是新格式
-        if (needsRehash(user.password_hash)) {
-          try {
-            run("UPDATE users SET password_hash = ? WHERE id = ?", hashPassword(password), user.id);
-          } catch (e) {
-            console.warn("[auth] rehash failed", e);
+        if (code) {
+          // 免密登录：邮箱验证码（从 Supabase 迁过来没有密码哈希的用户也能用）
+          const checked = await verifyCode(email, code, "login");
+          if (!checked.ok) {
+            console.warn(`[auth] code login failed for ${email}: ${checked.message}`);
+            return null;
+          }
+        } else {
+          if (!user.password_hash) return null;
+          if (!verifyPassword(password, user.password_hash)) return null;
+
+          // 老格式（bcrypt，从 Supabase 迁过来的）登录成功后顺手升级成 scrypt：
+          // 用户无感，下次登录就是新格式
+          if (needsRehash(user.password_hash)) {
+            try {
+              run("UPDATE users SET password_hash = ? WHERE id = ?", hashPassword(password), user.id);
+            } catch (e) {
+              console.warn("[auth] rehash failed", e);
+            }
           }
         }
 

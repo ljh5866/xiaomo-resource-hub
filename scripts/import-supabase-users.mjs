@@ -102,8 +102,12 @@ for (const row of rows) {
     skipped.push({ email: email || "(空)", reason: "邮箱无效" });
     continue;
   }
-  if (!/^\$2[aby]\$/.test(hash) && !hash.startsWith("scrypt$")) {
-    skipped.push({ email, reason: "密码哈希格式不认识" });
+
+  // 没有密码哈希也允许导入：这类用户走"邮箱验证码"登录
+  const hasHash = /^\$2[aby]\$/.test(hash) || hash.startsWith("scrypt$");
+  const noPassword = !hasHash;
+  if (hash && !hasHash) {
+    skipped.push({ email, reason: "哈希格式不认识（既不是 bcrypt 也不是 scrypt）" });
     continue;
   }
 
@@ -121,7 +125,13 @@ for (const row of rows) {
 
   const ts = createdAt ? Math.floor(new Date(createdAt).getTime() / 1000) : Math.floor(Date.now() / 1000);
 
-  users.push({ email, hash, name, createdAt: Number.isFinite(ts) ? ts : Math.floor(Date.now() / 1000) });
+  users.push({
+    email,
+    hash: hasHash ? hash : null,
+    noPassword,
+    name,
+    createdAt: Number.isFinite(ts) ? ts : Math.floor(Date.now() / 1000),
+  });
 }
 
 /* ───────── 去重（文件内重复） ───────── */
@@ -145,6 +155,7 @@ const insert = db.prepare(
 );
 
 let inserted = 0;
+let codeOnly = 0;
 const existed = [];
 
 if (!dry) db.exec("BEGIN");
@@ -156,6 +167,7 @@ try {
     }
     if (!dry) insert.run(u.email, u.name, u.hash, u.createdAt);
     inserted++;
+    if (u.noPassword) codeOnly++;
   }
   if (!dry) db.exec("COMMIT");
 } catch (e) {
@@ -170,6 +182,7 @@ try {
 console.log(`\n来源：${file}`);
 console.log(`读取 ${rows.length} 行 → 有效 ${unique.length} 条`);
 console.log(`${dry ? "（预演，未写库）将导入" : "已导入"}：${inserted}`);
+console.log(`  其中无密码（只能验证码登录）：${codeOnly}`);
 console.log(`邮箱已存在跳过：${existed.length}`);
 if (existed.length) console.log("  " + existed.slice(0, 5).join(", ") + (existed.length > 5 ? " …" : ""));
 if (skipped.length) {

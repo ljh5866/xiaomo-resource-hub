@@ -12,7 +12,7 @@ await page.screenshot({ path: ".shots/admin-register.png" });
 await page.goto(`${BASE}/login`, { waitUntil: "domcontentloaded" });
 await page.locator('input[type="email"]').fill(CREDENTIALS.email);
 await page.locator('input[type="password"]').fill(CREDENTIALS.password);
-await page.getByRole("button", { name: "登录" }).click();
+await page.getByRole("button", { name: "登录", exact: true }).click();
 await page.waitForTimeout(2500);
 
 await page.goto(`${BASE}/admin`, { waitUntil: "domcontentloaded" });

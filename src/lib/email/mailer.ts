@@ -64,15 +64,20 @@ export function generateCode(): string {
   return String(randomInt(0, 1_000_000)).padStart(6, "0");
 }
 
-export function registerCodeMail(code: string, siteName: string) {
+export function registerCodeMail(
+  code: string,
+  siteName: string,
+  purpose: "register" | "login" = "register",
+) {
+  const action = purpose === "login" ? "登录" : "注册";
   return {
-    subject: `【${siteName}】注册验证码 ${code}`,
-    text: `你的注册验证码是 ${code}，10 分钟内有效。如果不是你本人操作，忽略这封邮件即可。`,
+    subject: `【${siteName}】${action}验证码 ${code}`,
+    text: `你的${action}验证码是 ${code}，10 分钟内有效。如果不是你本人操作，忽略这封邮件即可。`,
     html: `
       <div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#18181b">
         <p style="margin:0 0 16px;font-size:14px;color:#52525b">${siteName}</p>
         <div style="border:1px solid #ececef;border-radius:8px;padding:24px">
-          <p style="margin:0 0 8px;font-size:15px">注册验证码</p>
+          <p style="margin:0 0 8px;font-size:15px">${action}验证码</p>
           <p style="margin:0 0 16px;font-size:32px;font-weight:700;letter-spacing:8px;font-family:ui-monospace,Consolas,monospace">${code}</p>
           <p style="margin:0;font-size:13px;color:#52525b">10 分钟内有效，请勿转发给他人。</p>
         </div>

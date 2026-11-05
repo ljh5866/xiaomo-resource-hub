@@ -44,7 +44,7 @@ log.push({ step: "register", url: page.url().replace(BASE, ""), onLogin: page.ur
 /* 2. 登录 */
 await page.locator('input[type="email"]').fill(email);
 await page.locator('input[type="password"]').fill(password);
-await page.getByRole("button", { name: "登录" }).click();
+await page.getByRole("button", { name: "登录", exact: true }).click();
 await page.waitForTimeout(2500);
 const signedIn = !page.url().includes("/login");
 log.push({ step: "login", url: page.url().replace(BASE, ""), signedIn });
@@ -70,7 +70,7 @@ if (row) {
   await p2.goto(`${BASE}/login`, { waitUntil: "domcontentloaded" });
   await p2.locator('input[type="email"]').fill(email);
   await p2.locator('input[type="password"]').fill(password);
-  await p2.getByRole("button", { name: "登录" }).click();
+  await p2.getByRole("button", { name: "登录", exact: true }).click();
   await p2.waitForTimeout(2500);
   log.push({ step: "banned-login", stillOnLogin: p2.url().includes("/login") });
   await ctx2.close();
