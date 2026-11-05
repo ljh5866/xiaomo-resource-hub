@@ -41,15 +41,24 @@ export function decideAdminRoute(input: AdminRouteInput): AdminRouteDecision {
 
   /* ───── 子域名模式 ───── */
   if (adminHost && host === adminHost) {
-    // 框架资源 / 鉴权接口 / 登录注册页原样放行
+    // 后台自己的登录页：和前台登录分开（前台是给收藏/投稿的用户，后台是给管理员的）
+    if (pathname === "/login") {
+      return { kind: "rewrite", pathname: "/admin-login" };
+    }
+
+    // 后台子域不开放注册，直接把想注册的人送回前台
+    if (pathname === "/register") {
+      return { kind: "redirect", to: `https://${siteHost}/register` };
+    }
+
+    // 框架资源 / 鉴权接口 / 登录页本身原样放行
     if (
       pathname.startsWith("/_next") ||
       pathname.startsWith("/api/") ||
       pathname.startsWith("/files/") ||
       pathname === "/favicon.ico" ||
       pathname === "/robots.txt" ||
-      pathname === "/login" ||
-      pathname === "/register"
+      pathname === "/admin-login"
     ) {
       return { kind: "pass" };
     }

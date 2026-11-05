@@ -80,9 +80,19 @@ test("子域名：未登录 → 跳 /login", () => {
   assert.equal(r.kind === "redirect" && r.to, "/login?next=%2Fusers");
 });
 
-test("子域名：登录页原样放行（否则死循环）", () => {
+test("子域名：/login 重写到后台专用登录页", () => {
   const r = decideAdminRoute({ ...onSub, pathname: "/login" });
+  assert.deepEqual(r, { kind: "rewrite", pathname: "/admin-login" });
+});
+
+test("子域名：/admin-login 本身放行（避免重写后又被拦）", () => {
+  const r = decideAdminRoute({ ...onSub, pathname: "/admin-login" });
   assert.deepEqual(r, { kind: "pass" });
+});
+
+test("子域名：/register 送回前台注册", () => {
+  const r = decideAdminRoute({ ...onSub, pathname: "/register" });
+  assert.deepEqual(r, { kind: "redirect", to: "https://ttals.com/register" });
 });
 
 test("子域名：普通用户登录后 → 踢回主域首页", () => {
