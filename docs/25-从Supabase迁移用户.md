@@ -114,6 +114,25 @@ const bcrypt = (bcryptNS.default ?? bcryptNS) as { compareSync: ... };
 
 ---
 
+## 五之一、运维账号权限（避免每条命令都 sudo）
+
+data/ 归 www-data 所有，管理员账号默认写不进去。一次配置，之后 
+ode scripts/... 都不用 sudo：
+
+```bash
+sudo bash /var/www/xiaomo/deploy/fix-permissions.sh
+newgrp www-data          # 或重新登录 SSH 让组关系生效
+```
+
+验证：
+
+```bash
+groups | grep www-data
+touch /var/www/xiaomo/data/.t && rm /var/www/xiaomo/data/.t && echo OK
+```
+
+原理：把 admin 加进 www-data 组 + data/ 组可写 + 目录 setgid（新建文件自动继承组）。
+
 ## 六、还没做的
 
 | # | 项 | 说明 |
