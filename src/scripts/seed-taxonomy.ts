@@ -61,6 +61,7 @@ const TAGS: [slug: string, name: string, kind?: string][] = [
   ["android-app", "安卓端", "gh"],
   ["ios-app", "iOS 端", "gh"],
   ["desktop-app", "桌面端", "gh"],
+  ["tool-lib", "工具库", "gh"],
   ["windows", "Windows", "platform"],
   ["mac", "macOS", "platform"],
   ["android", "Android", "platform"],
