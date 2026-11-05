@@ -1,19 +1,40 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { LogOut, Settings } from "lucide-react";
 import { Avatar } from "@/components/user/avatar";
 
+type Me = { name: string; avatarUrl: string | null; email: string };
+
 /**
  * 顶部账号区：头像 + 昵称（点进用户页）+ 设置 + 退出。
- * 导航里不再放「我的」，避免和这里重复。
+ *
+ * 头像和昵称来自 /api/me（实时读库），而不是 session——
+ * JWT 里的快照在改名/换头像后不会更新，会导致"换了头像不显示"。
  */
 export function UserMenu() {
   const { data, status } = useSession();
-  const user = data?.user as
-    | { name?: string | null; email?: string | null; image?: string | null }
-    | undefined;
+  const sessionUser = data?.user as { email?: string | null } | undefined;
+  const [me, setMe] = useState<Me | null>(null);
+
+  useEffect(() => {
+    if (status !== "authenticated") {
+      setMe(null);
+      return;
+    }
+    let alive = true;
+    fetch("/api/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json: Me | null) => {
+        if (alive && json?.name) setMe(json);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [status]);
 
   if (status === "loading") {
     return (
@@ -23,7 +44,7 @@ export function UserMenu() {
     );
   }
 
-  if (!user) {
+  if (!sessionUser) {
     return (
       <Link
         href="/login"
@@ -34,15 +55,18 @@ export function UserMenu() {
     );
   }
 
+  const displayName = me?.name ?? "我的";
+  const avatar = me?.avatarUrl ?? null;
+
   return (
     <span className="flex items-center gap-0.5">
       <Link
         href="/me"
-        title={user.email ?? undefined}
+        title={me?.email ?? sessionUser.email ?? undefined}
         className="inline-flex min-h-11 items-center gap-2 rounded-full pl-1 pr-2 text-sm text-ink transition-colors hover:text-accent"
       >
-        <Avatar name={user.name ?? user.email ?? "我"} src={user.image ?? null} size="sm" />
-        <span className="hidden max-w-[7em] truncate sm:inline">{user.name ?? "我的"}</span>
+        <Avatar name={displayName} src={avatar} size="sm" />
+        <span className="hidden max-w-[7em] truncate sm:inline">{displayName}</span>
       </Link>
 
       <Link

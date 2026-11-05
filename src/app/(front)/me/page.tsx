@@ -9,6 +9,7 @@ import { getSessionUser } from "@/lib/auth";
 import { get } from "@/db/client";
 import { listUserFavorites, listUserSubmissions } from "@/lib/queries/user";
 import { formatCount } from "@/lib/utils";
+import { normalizeAvatarUrl } from "@/lib/user/avatar-url";
 
 export const metadata: Metadata = {
   title: "我的",
@@ -55,7 +56,7 @@ export default async function MePage({
     <div className="container-page py-10">
       <header className="flex flex-wrap items-start justify-between gap-6 border-b border-line pb-6">
         <div className="flex items-center gap-4">
-          <Avatar name={displayName} src={row?.avatar_url ?? null} size="lg" />
+          <Avatar name={displayName} src={normalizeAvatarUrl(row?.avatar_url)} size="lg" />
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-[22px] font-semibold text-ink">{displayName}</h1>

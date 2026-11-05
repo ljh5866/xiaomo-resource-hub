@@ -37,7 +37,7 @@ export async function POST(req: Request) {
       .toFile(path.join(DIR, name));
 
     // 版本号让 CDN/浏览器拿到新图
-    const url = `/files/uploads/avatars/${name}?v=${Date.now()}`;
+    const url = `/files/avatars/${name}?v=${Date.now()}`;
     run("UPDATE users SET avatar_url = ? WHERE id = ?", url, user.id);
 
     return NextResponse.json({ ok: true, url });
