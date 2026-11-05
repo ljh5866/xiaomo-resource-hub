@@ -24,21 +24,23 @@ const db = new DatabaseSync(process.env.DATABASE_URL?.replace(/^\.\//, "") ?? "d
 
 const rows = db
   .prepare(
-    `SELECT r.code, r.slug, r.title, r.subtitle, r.summary, r.content_md,
+    `SELECT r.id, r.code, r.slug, r.title, r.subtitle, r.summary, r.content_md,
             r.platforms, r.language, r.source_url, r.cover_url, r.cover_blur,
-            l.url,
             (SELECT GROUP_CONCAT(t.slug) FROM resource_tags rt JOIN tags t ON t.id = rt.tag_id
               WHERE rt.resource_id = r.id) AS tags
        FROM resources r
-       JOIN resource_links l ON l.resource_id = r.id
       WHERE r.source_url LIKE 'https://www.touchgal.ink/%'
       ORDER BY r.id`,
   )
   .all();
 
-db.close();
-
 console.log(`导出 ${rows.length} 条`);
+
+// 逐条取所有下载链接（含网盘与提取码）
+const linkStmt = db.prepare(
+  `SELECT provider, url, extract_code AS code, label, is_primary AS isPrimary
+     FROM resource_links WHERE resource_id = ? ORDER BY is_primary DESC, id`,
+);
 
 let copied = 0;
 const out = [];
@@ -64,13 +66,20 @@ for (const r of rows) {
     platforms: r.platforms,
     language: r.language,
     sourceUrl: r.source_url,
-    linkUrl: r.url,
     coverFile,
     coverBlur: r.cover_blur,
     tags: (r.tags ?? "").split(",").filter(Boolean),
+    links: linkStmt.all(r.id).map((l) => ({
+      url: l.url,
+      provider: l.provider,
+      code: l.code,
+      label: l.label,
+      primary: Boolean(l.isPrimary),
+    })),
   });
 }
 
+db.close();
 fs.writeFileSync(path.join(OUT_DIR, "rows.json"), JSON.stringify(out, null, 1), "utf8");
 console.log(`封面复制 ${copied} 张`);
 

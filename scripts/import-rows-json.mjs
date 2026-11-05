@@ -44,11 +44,39 @@ function nextCode() {
 let imported = 0;
 let skipped = 0;
 let covers = 0;
+let upgraded = 0;
 
 for (const r of rows) {
-  const exists =
-    db.prepare("SELECT id FROM resources WHERE slug = ? OR source_url = ? LIMIT 1").get(r.slug, r.sourceUrl);
+  const exists = db
+    .prepare("SELECT id FROM resources WHERE slug = ? OR source_url = ? LIMIT 1")
+    .get(r.slug, r.sourceUrl);
+
   if (exists) {
+    // 已存在：如果它还只有「源站」链接，就把网盘链接补上（升级旧数据）
+    const hasPan = db
+      .prepare("SELECT 1 FROM resource_links WHERE resource_id = ? AND provider <> 'self' LIMIT 1")
+      .get(exists.id);
+    const incoming = Array.isArray(r.links) ? r.links.filter((l) => l.provider && l.provider !== "self") : [];
+    if (!hasPan && incoming.length) {
+      const { createHash } = await import("node:crypto");
+      const ins = db.prepare(
+        `INSERT INTO resource_links (resource_id, url, url_hash, provider, extract_code, label, is_primary, status, created_at)
+         VALUES (?,?,?,?,?,?,?,'unknown',unixepoch())`,
+      );
+      incoming.forEach((l, i) => {
+        ins.run(
+          exists.id,
+          l.url,
+          createHash("sha256").update(l.url).digest("hex"),
+          l.provider,
+          l.code ?? null,
+          l.label ?? null,
+          i === 0 ? 1 : 0,
+        );
+      });
+      upgraded++;
+      continue;
+    }
     skipped++;
     continue;
   }
@@ -98,12 +126,26 @@ for (const r of rows) {
 
     const rid = Number(info.lastInsertRowid);
 
-    const url = r.linkUrl ?? r.sourceUrl;
     const { createHash } = await import("node:crypto");
-    db.prepare(
-      `INSERT INTO resource_links (resource_id, url, url_hash, provider, label, is_primary, status, created_at)
-       VALUES (?,?,?,'self','源站',1,'unknown',unixepoch())`,
-    ).run(rid, url, createHash("sha256").update(url).digest("hex"));
+    const links = Array.isArray(r.links) && r.links.length
+      ? r.links
+      : [{ url: r.sourceUrl, provider: "self", label: "源站", primary: true }];
+
+    const ins = db.prepare(
+      `INSERT INTO resource_links (resource_id, url, url_hash, provider, extract_code, label, is_primary, status, created_at)
+       VALUES (?,?,?,?,?,?,?,'unknown',unixepoch())`,
+    );
+    for (const l of links) {
+      ins.run(
+        rid,
+        l.url,
+        createHash("sha256").update(l.url).digest("hex"),
+        l.provider ?? "self",
+        l.code ?? null,
+        l.label ?? null,
+        l.primary ? 1 : 0,
+      );
+    }
 
     for (const slug of r.tags ?? []) {
       const tag = db.prepare("SELECT id FROM tags WHERE slug = ?").get(slug);
@@ -119,4 +161,4 @@ for (const r of rows) {
 }
 
 db.close();
-console.log(`\n导入 ${imported} · 跳过 ${skipped} · 附带封面 ${covers}`);
+console.log(`\n导入 ${imported} · 升级 ${upgraded} · 跳过 ${skipped} · 附带封面 ${covers}`);
