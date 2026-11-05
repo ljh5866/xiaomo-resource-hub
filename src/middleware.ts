@@ -40,6 +40,9 @@ export default auth((req) => {
 });
 
 export const config = {
-  // 排除静态资源与文件流，其余路径都过一遍（后台路径/域名可配置，无法写死 matcher）
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|files/|.*\\..*).*)"],
+  // 排除静态资源、文件流与 API：
+  //   /api/* 的鉴权在各 route 里自己做（auth() / requireAdmin），
+  //   而 middleware 包着 NextAuth 会在每个请求上重写会话 cookie ——
+  //   那会把 /api/logout 刚刚清掉的 cookie 又写回去，表现就是"点退出没反应"。
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|files/|api/|.*\\..*).*)"],
 };
