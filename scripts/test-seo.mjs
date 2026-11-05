@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 结构化数据验收：抓页面 HTML，解析所有 application/ld+json，校验必填字段。
  * 用法：node scripts/test-seo.mjs
  */
@@ -8,7 +8,7 @@ const BODY_TYPES = ["SoftwareApplication", "CreativeWork", "Course", "Book"];
 
 const PAGES = [
   { name: "home", path: "/", expect: ["WebSite"] },
-  { name: "category", path: "/c/template", expect: ["CollectionPage", "BreadcrumbList"] },
+  { name: "category", path: "/c/games", expect: ["CollectionPage", "BreadcrumbList"] },
   {
     name: "detail",
     path: "/r/excel-dashboard-pack",

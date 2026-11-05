@@ -94,14 +94,21 @@ for (const [name, path] of [
   add("资源", "旧版文案已清", !html?.includes("目录编号制"), "无「目录编号制」");
 }
 
-/* ───────── 主域 → 子域 ───────── */
-{
+/* ───────── 主域 → 子域（只有真分了子域才检） ───────── */
+if (ADMIN !== FRONT) {
   const r = await status(FRONT + "/admin");
   const loc = r.location ?? "";
   add("路由", "主域 /admin 跳子域", loc.startsWith(ADMIN), `${r.status} → ${loc}`);
+} else {
+  add("路由", "主域 /admin 跳子域", true, "本地未分子域，跳过");
 }
 
 /* ───────── 后台（登录后逐页） ───────── */
+// 线上：后台在子域根路径；本地：没有子域，后台在 /admin 下
+const LOCAL_MODE = ADMIN === FRONT;
+const adminUrl = (path) => (LOCAL_MODE ? `${FRONT}/admin${path === "/" ? "" : path}` : `${ADMIN}${path}`);
+const loginUrl = LOCAL_MODE ? `${FRONT}/login` : `${ADMIN}/login`;
+
 const browser = await chromium.launch({
   executablePath:
     process.env.BROWSER_PATH ??
@@ -110,7 +117,7 @@ const browser = await chromium.launch({
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
 const page = await ctx.newPage();
 
-await page.goto(`${ADMIN}/login`, { waitUntil: "domcontentloaded", timeout: 30000 });
+await page.goto(loginUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
 await page.waitForTimeout(1500); // 等 React 水合，否则可能触发表单原生提交
 await page.locator('input[type="email"]').fill(EMAIL);
 await page.locator('input[type="password"]').fill(PASSWORD);
@@ -118,7 +125,7 @@ await page.getByRole("button", { name: "登录" }).click();
 await page.waitForTimeout(3000);
 
 const loggedIn = !page.url().includes("/login");
-add("后台", "登录", loggedIn, page.url().replace(ADMIN, "") || "/");
+add("后台", "登录", loggedIn, page.url().replace(FRONT, "") || "/");
 
 if (loggedIn) {
   const adminPages = [
@@ -133,7 +140,7 @@ if (loggedIn) {
   ];
 
   for (const [name, path, keyword] of adminPages) {
-    const res = await page.goto(`${ADMIN}${path}`, { waitUntil: "domcontentloaded" });
+    const res = await page.goto(adminUrl(path), { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(400);
     const text = (await page.locator("body").textContent()) ?? "";
     const errored = /Application error|Internal Server Error|500/.test(text);

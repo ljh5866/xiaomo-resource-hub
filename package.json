@@ -9,6 +9,7 @@
     "start": "next start -p 3100",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "verify": "node scripts/verify-all.mjs",
     "db:generate": "drizzle-kit generate",
     "db:push": "node scripts/migrate.mjs && tsx src/scripts/reindex.ts",
     "db:migrate": "node scripts/migrate.mjs",
