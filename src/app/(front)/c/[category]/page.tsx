@@ -1,30 +1,41 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Suspense } from "react";
 import { CategoryRail } from "@/components/layout/category-rail";
 import { GameChips } from "@/components/resource/game-chips";
-import { ResourceFeed } from "@/components/resource/resource-feed";
+import { ResourceCard } from "@/components/resource/resource-card";
+import { Pagination } from "@/components/ui/pagination";
 import { JsonLd } from "@/components/seo/json-ld";
 import { breadcrumbJsonLd, collectionJsonLd } from "@/lib/seo";
-import { CardGridSkeleton } from "@/components/ui/skeleton";
 import { listCategories, listResources, countResources, listGameTags } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
+const PAGE_SIZE = 24;
+
 export async function generateMetadata({
   params,
+  searchParams,
 }: {
   params: Promise<{ category: string }>;
+  searchParams: Promise<{ page?: string; game?: string }>;
 }): Promise<Metadata> {
   const { category } = await params;
+  const { page, game } = await searchParams;
   const all = await listCategories();
   const meta = all.find((c) => c.slug === category);
   if (!meta) return { title: "分类不存在" };
 
+  const p = Math.max(1, Number(page) || 1);
+  const qs = new URLSearchParams();
+  if (game) qs.set("game", game);
+  if (p > 1) qs.set("page", String(p));
+  const canonical = `/c/${meta.slug}${qs.toString() ? `?${qs}` : ""}`;
+
   return {
-    title: meta.name,
+    title: p > 1 ? `${meta.name} · 第 ${p} 页` : meta.name,
     description: meta.description ?? `${meta.name} 分类下的全部资源，共 ${meta.count} 项。`,
-    alternates: { canonical: `/c/${meta.slug}` },
+    alternates: { canonical },
+    robots: p > 1 ? { index: true, follow: true } : undefined,
     openGraph: {
       title: `${meta.name} · 小莫资源网`,
       description: meta.description ?? undefined,
@@ -45,19 +56,26 @@ export default async function CategoryPage({
   searchParams,
 }: {
   params: Promise<{ category: string }>;
-  searchParams: Promise<{ game?: string }>;
+  searchParams: Promise<{ page?: string; game?: string }>;
 }) {
   const { category } = await params;
-  const { game } = await searchParams;
+  const { page: pageRaw, game } = await searchParams;
 
   const categories = await listCategories();
   const current = categories.find((c) => c.slug === category);
   if (!current) notFound();
 
-  const PAGE_SIZE = 24;
-  const [items, total, games] = await Promise.all([
-    listResources({ categorySlug: category, gameSlug: game, limit: PAGE_SIZE }),
-    countResources({ categorySlug: category, gameSlug: game }),
+  const total = await countResources({ categorySlug: category, gameSlug: game });
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = Math.min(Math.max(1, Number(pageRaw) || 1), totalPages);
+
+  const [items, games] = await Promise.all([
+    listResources({
+      categorySlug: category,
+      gameSlug: game,
+      limit: PAGE_SIZE,
+      offset: (page - 1) * PAGE_SIZE,
+    }),
     listGameTags(category),
   ]);
 
@@ -95,30 +113,45 @@ export default async function CategoryPage({
             </p>
             <p className="mt-3 font-mono text-[11px] tracking-wide text-dim">
               共 {total} 项
+              {totalPages > 1 && ` · 第 ${page} / ${totalPages} 页`}
             </p>
           </header>
 
-          <Suspense
-            fallback={
-              <>
-                <GameChips categorySlug={category} games={games} active={game ?? ""} />
-                <div className="mt-8">
-                  <CardGridSkeleton count={Math.min(items.length, 9)} />
-                </div>
-              </>
-            }
-          >
-            <GameChips categorySlug={category} games={games} active={game ?? ""} />
-            <div className="mt-8">
-              <ResourceFeed
-                key={`${category}-${game ?? "all"}`}
-                initialItems={items}
-                initialTotal={total}
-                categorySlug={category}
-                gameSlug={game}
-              />
+          <GameChips categorySlug={category} games={games} active={game ?? ""} />
+
+          {items.length === 0 ? (
+            <div className="mt-8 rounded-[14px] border border-dashed border-line p-12 text-center">
+              <p className="font-sans text-[18px] font-semibold text-ink">
+                {game ? "这个游戏下还没有资源" : "这里还没有内容"}
+              </p>
+              <p className="mx-auto mt-2 max-w-sm text-[13px] leading-relaxed text-muted">
+                {game ? (
+                  "换一个游戏，或者看看全部。"
+                ) : (
+                  <>
+                    资源正在陆续上架。发现好东西的话，欢迎
+                    <a href="/submit" className="mx-1 text-accent">
+                      投稿
+                    </a>
+                    推荐给我。
+                  </>
+                )}
+              </p>
             </div>
-          </Suspense>
+          ) : (
+            <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+              {items.map((r) => (
+                <ResourceCard key={r.code} data={r} />
+              ))}
+            </div>
+          )}
+
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            basePath={`/c/${category}`}
+            query={{ game }}
+          />
         </div>
       </div>
     </div>
