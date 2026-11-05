@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Bookmark, Inbox, Settings } from "lucide-react";
 import { Avatar } from "@/components/user/avatar";
 import { ResourceCard } from "@/components/resource/resource-card";
 import { ButtonLink } from "@/components/ui/button";
 import { getSessionUser } from "@/lib/auth";
 import { get } from "@/db/client";
-import { listFavoritesByIds, listUserFavorites, listUserSubmissions } from "@/lib/queries/user";
-import { readFavIds } from "@/lib/favorites";
+import { listUserFavorites, listUserSubmissions } from "@/lib/queries/user";
 import { formatCount } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -37,56 +37,8 @@ export default async function MePage({
   const tab: TabKey = TABS.some((t) => t.key === rawTab) ? (rawTab as TabKey) : "favorites";
 
   const user = await getSessionUser();
-
-  /* 未登录：本机收藏 + 引导登录 */
-  if (!user) {
-    const ids = await readFavIds();
-    const rows = listFavoritesByIds(ids);
-
-    return (
-      <div className="container-page py-10">
-        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line pb-5">
-          <div className="flex items-center gap-3">
-            <Avatar size="lg" name="访客" />
-            <div>
-              <h1 className="text-[22px] font-semibold text-ink">游客</h1>
-              <p className="mt-1 text-[13px] text-muted">
-                收藏存在本机 cookie 里，登录后可以跨设备同步
-              </p>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <ButtonLink href="/login?next=/me" size="sm">
-              登录
-            </ButtonLink>
-            <ButtonLink href="/register" variant="secondary" size="sm">
-              注册
-            </ButtonLink>
-          </div>
-        </header>
-
-        <section className="mt-8">
-          <h2 className="text-[15px] font-semibold text-ink">
-            本机收藏 <span className="ml-1 font-mono text-[12px] text-dim">{rows.length}</span>
-          </h2>
-          {rows.length === 0 ? (
-            <EmptyState
-              title="还没有收藏"
-              desc="在任意资源页点「收藏」，登录后会自动同步到账号。"
-              href="/"
-              hrefLabel="去逛逛"
-            />
-          ) : (
-            <div className="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {rows.map((r) => (
-                <ResourceCard key={r.code} data={r} />
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
-    );
-  }
+  // 收藏只对登录用户开放：未登录直接去登录页，登录后回到这里
+  if (!user) redirect("/login?next=/me");
 
   /* 已登录 */
   const row = get<{ avatar_url: string | null; created_at: number; role: string }>(

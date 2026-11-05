@@ -36,6 +36,15 @@ export function FavoriteButton({ resourceId }: { resourceId: number }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id: resourceId }),
         });
+
+        // 未登录：收藏只对账号开放，直接去登录页并回跳当前页
+        if (res.status === 401) {
+          setOn(!next);
+          const back = window.location.pathname + window.location.search;
+          window.location.href = `/login?next=${encodeURIComponent(back)}`;
+          return;
+        }
+
         const json = (await res.json()) as { ok: boolean; favorited?: boolean };
         if (!json.ok) setOn(!next);
         else if (typeof json.favorited === "boolean") setOn(json.favorited);

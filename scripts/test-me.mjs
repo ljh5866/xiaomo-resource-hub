@@ -22,11 +22,10 @@ const browser = await launch({});
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 const log = [];
 
-/* 1. 未登录的 /me（游客态） */
+/* 1. 未登录访问 /me → 跳登录（收藏与下载只对账号开放） */
 await page.goto(`${BASE}/me`, { waitUntil: "domcontentloaded" });
-await page.waitForTimeout(400);
-const guest = (await page.locator("body").textContent()) ?? "";
-log.push({ step: "guest", ok: guest.includes("登录") && guest.includes("本机收藏") });
+await page.waitForTimeout(1200);
+log.push({ step: "guest-redirect", url: page.url().replace(BASE, "") });
 
 /* 2. 未登录访问设置页 → 跳登录 */
 await page.goto(`${BASE}/me/settings`, { waitUntil: "domcontentloaded" });
@@ -98,7 +97,7 @@ log.push({ step: "db", name: row?.name, hasAvatar: Boolean(row?.avatar_url) });
 console.log(JSON.stringify(log, null, 2));
 
 const ok =
-  log.find((l) => l.step === "guest")?.ok === true &&
+  log.find((l) => l.step === "guest-redirect")?.url?.startsWith("/login") === true &&
   log.find((l) => l.step === "settings-guard")?.url?.includes("/login") === true &&
   log.filter((l) => l.step?.startsWith("tab-")).every((l) => l.ok) &&
   log.find((l) => l.step === "no-settings-on-me")?.ok === true &&
