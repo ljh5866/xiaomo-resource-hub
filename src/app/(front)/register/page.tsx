@@ -18,7 +18,7 @@ export default function RegisterPage() {
         <p className="font-mono text-[11px] tracking-[0.2em] text-dim">XIAOMO INDEX</p>
         <h1 className="mt-2 text-[26px] font-bold text-ink">创建账号</h1>
         <p className="mt-2 text-[13px] leading-relaxed text-muted">
-          注册后可以收藏资源、提交推荐。账号只用于这些，不发邮件、不做营销。
+          注册需要邮箱验证码，用来确认真实可收信。除此之外不发任何邮件，也不做营销。
         </p>
 
         <div className="mt-8">
