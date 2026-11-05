@@ -130,7 +130,19 @@ fi
 ok_step "启动" "$(since $S)"
 
 # ─────────── 7. 冒烟 ───────────
-step "7/7 冒烟检查"
+step "7/8 安装每日任务（GitHub star 同步）"
+S=$(date +%s)
+if [[ -f deploy/xiaomo-stars.service && -f deploy/xiaomo-stars.timer ]]; then
+  sudo cp deploy/xiaomo-stars.service deploy/xiaomo-stars.timer /etc/systemd/system/ 2>/dev/null || true
+  sudo systemctl daemon-reload 2>/dev/null || true
+  sudo systemctl enable --now xiaomo-stars.timer 2>/dev/null || true
+  ok_step "定时器" "$(since $S)"
+  sudo systemctl list-timers xiaomo-stars.timer --no-pager 2>/dev/null | head -3 || true
+else
+  echo "  跳过（仓库里没有 timer 文件）"
+fi
+
+step "8/8 冒烟检查"
 S=$(date +%s)
 node scripts/smoke.mjs
 ok_step "冒烟" "$(since $S)"
