@@ -20,7 +20,13 @@ export const GH_API = "https://api.github.com";
 const SCOPE = "public_repo";
 
 export function githubConfigured() {
-  return Boolean(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET);
+  const id = (process.env.GITHUB_CLIENT_ID ?? "").trim();
+  const secret = (process.env.GITHUB_CLIENT_SECRET ?? "").trim();
+  // 占位符 / 明显没填的值一律当未配置，避免把用户甩到 GitHub 报错页
+  const placeholder = /^(你的|xxx|changeme|your[-_]?|client[-_]?id$|client[-_]?secret$)/i;
+  if (!id || !secret || placeholder.test(id) || placeholder.test(secret)) return false;
+  if (id.length < 10 || secret.length < 20) return false;
+  return true;
 }
 
 export function authorizeUrl(state: string, redirectUri: string) {
