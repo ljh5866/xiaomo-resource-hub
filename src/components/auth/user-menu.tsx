@@ -2,21 +2,23 @@
 
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { LogOut, UserRound } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
 import { Avatar } from "@/components/user/avatar";
 
 /**
- * 登录态放在客户端：服务端页面因此可以继续静态化 / ISR。
- * 前台不提供后台入口——管理员直接访问管理地址即可。
+ * 顶部账号区：头像 + 昵称（点进用户页）+ 设置 + 退出。
+ * 导航里不再放「我的」，避免和这里重复。
  */
 export function UserMenu() {
   const { data, status } = useSession();
-  const user = data?.user as { name?: string | null; email?: string | null; image?: string | null } | undefined;
+  const user = data?.user as
+    | { name?: string | null; email?: string | null; image?: string | null }
+    | undefined;
 
   if (status === "loading") {
     return (
       <span className="inline-flex min-h-11 w-16 items-center justify-center" aria-hidden>
-        <span className="h-3 w-10 animate-pulse rounded bg-surface-2" />
+        <span className="h-8 w-8 animate-pulse rounded-full bg-surface-2" />
       </span>
     );
   }
@@ -33,23 +35,32 @@ export function UserMenu() {
   }
 
   return (
-    <span className="flex items-center">
+    <span className="flex items-center gap-0.5">
       <Link
         href="/me"
         title={user.email ?? undefined}
-        className="inline-flex min-h-11 items-center gap-2 px-2 text-sm text-muted transition-colors hover:text-accent"
+        className="inline-flex min-h-11 items-center gap-2 rounded-full pl-1 pr-2 text-sm text-ink transition-colors hover:text-accent"
       >
         <Avatar name={user.name ?? user.email ?? "我"} src={user.image ?? null} size="sm" />
-        <span className="hidden max-w-[8em] truncate sm:inline">{user.name ?? "我的"}</span>
+        <span className="hidden max-w-[7em] truncate sm:inline">{user.name ?? "我的"}</span>
+      </Link>
+
+      <Link
+        href="/me/settings"
+        title="设置"
+        aria-label="设置"
+        className="inline-flex min-h-11 w-9 cursor-pointer items-center justify-center text-muted transition-colors hover:text-ink"
+      >
+        <Settings className="size-4" strokeWidth={1.5} aria-hidden />
       </Link>
 
       <a
         href="/api/logout"
         title="退出登录"
-        className="inline-flex min-h-11 cursor-pointer items-center px-2 text-muted transition-colors hover:text-danger"
+        aria-label="退出登录"
+        className="inline-flex min-h-11 w-9 cursor-pointer items-center justify-center text-muted transition-colors hover:text-danger"
       >
         <LogOut className="size-4" strokeWidth={1.5} aria-hidden />
-        <span className="sr-only">退出</span>
       </a>
     </span>
   );

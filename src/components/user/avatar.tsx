@@ -6,7 +6,12 @@ const SIZES = {
   lg: "size-20 text-[26px]",
 } as const;
 
-/** 头像：有图用图，没有就用昵称首字（中文取第一个字） */
+const DEFAULT_SRC = "/default-avatar.webp";
+
+/**
+ * 头像：有图用图，没有就用默认头像图（深色圆形人像）。
+ * 默认图放在 public/default-avatar.webp，未登录/新用户都能拿到。
+ */
 export function Avatar({
   name,
   src,
@@ -18,22 +23,24 @@ export function Avatar({
   size?: keyof typeof SIZES;
   className?: string;
 }) {
-  const initial = (name ?? "?").trim().slice(0, 1).toUpperCase();
+  const resolved = src || DEFAULT_SRC;
 
   return (
     <span
       className={cn(
-        "relative inline-grid shrink-0 place-items-center overflow-hidden rounded-full border border-line bg-surface-2 font-medium text-muted",
+        "relative inline-grid shrink-0 place-items-center overflow-hidden rounded-full border border-line bg-surface-2",
         SIZES[size],
         className,
       )}
     >
-      {src ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt={name ? `${name} 的头像` : "头像"} className="size-full object-cover" />
-      ) : (
-        <span aria-hidden>{initial}</span>
-      )}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={resolved}
+        alt={name ? `${name} 的头像` : "头像"}
+        className="size-full object-cover"
+        loading="lazy"
+        decoding="async"
+      />
     </span>
   );
 }

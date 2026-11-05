@@ -103,6 +103,12 @@
   html {
     -webkit-text-size-adjust: 100%;
     scroll-behavior: smooth;
+    font-size: 16px;
+  }
+
+  /* 用户选择「大」字号 */
+  html[data-font="large"] {
+    font-size: 18px;
   }
 
   body {

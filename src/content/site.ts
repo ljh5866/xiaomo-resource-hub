@@ -28,7 +28,6 @@ export const site = {
   nav: [
     { href: "/c/software", label: "分类", desktopOnly: true },
     { href: "/updates", label: "每日更新", desktopOnly: true },
-    { href: "/me", label: "我的" },
     { href: "/login", label: "登录" },
   ],
 

@@ -5,6 +5,7 @@ import { get, run } from "@/db/client";
 import { hashPassword } from "@/lib/password";
 import { hit } from "@/lib/rate-limit";
 import { registrationOpen } from "@/lib/flags";
+import { randomNickname } from "@/lib/nickname";
 import { verifyCode } from "@/lib/auth/email-code";
 
 export type RegisterResult = { ok: true; message: string } | { ok: false; message: string };
@@ -69,7 +70,7 @@ export async function registerAccount(input: {
       `INSERT INTO users (email, name, role, password_hash, token_version, status)
        VALUES (?, ?, 'user', ?, 0, 'active')`,
       email,
-      name || email.split("@")[0],
+      name || randomNickname(),
       hashPassword(input.password),
     );
   } catch (err) {
