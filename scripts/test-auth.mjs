@@ -69,7 +69,7 @@ if (cardCount === 0) {
   log.push({ step: "favorite", title, label: favLabel });
 
   /* 7. 收藏页能看到它 */
-  await page.goto(`${BASE}/favorites`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${BASE}/me?tab=favorites`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(600);
   const inList = (await page.locator("body").textContent())?.includes(title) ?? false;
   log.push({ step: "favorites-page", containsTitle: inList });

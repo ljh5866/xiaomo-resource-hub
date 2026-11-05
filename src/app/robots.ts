@@ -18,7 +18,7 @@ export default function robots(): MetadataRoute.Robots {
             "/search",
             "/login",
             "/register",
-            "/favorites",
+            "/me",
           ]),
         ],
       },
