@@ -130,3 +130,39 @@ test("Host 带端口也能识别", () => {
   });
   assert.deepEqual(r, { kind: "rewrite", pathname: "/admin" });
 });
+
+test("子域名：/submit 别名映射到投稿管理", () => {
+  const d = decideAdminRoute({
+    pathname: "/submit",
+    host: "admin.ttals.com",
+    adminHost: "admin.ttals.com",
+    siteHost: "ttals.com",
+    authenticated: true,
+    role: "admin",
+  });
+  assert.deepEqual(d, { kind: "rewrite", pathname: "/admin/submissions" });
+});
+
+test("子域名：未知路径回落控制台而不是 404", () => {
+  const d = decideAdminRoute({
+    pathname: "/whatever",
+    host: "admin.ttals.com",
+    adminHost: "admin.ttals.com",
+    siteHost: "ttals.com",
+    authenticated: true,
+    role: "admin",
+  });
+  assert.deepEqual(d, { kind: "redirect", to: "/admin" });
+});
+
+test("子域名：/ 进控制台", () => {
+  const d = decideAdminRoute({
+    pathname: "/",
+    host: "admin.ttals.com",
+    adminHost: "admin.ttals.com",
+    siteHost: "ttals.com",
+    authenticated: true,
+    role: "admin",
+  });
+  assert.deepEqual(d, { kind: "rewrite", pathname: "/admin" });
+});

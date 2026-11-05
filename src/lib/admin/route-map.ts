@@ -23,6 +23,23 @@ export type AdminRouteDecision =
 
 const REAL = "/admin";
 
+/**
+ * 子域名下的友好别名：管理员习惯直接打 /submit、/users 这类前台路径，
+ * 以前会被拼成 /admin/submit → 404。这里映射到真正的后台页面。
+ */
+const ALIASES: Record<string, string> = {
+  "/submit": "/admin/submissions",
+  "/submissions": "/admin/submissions",
+  "/reports": "/admin/reports",
+  "/users": "/admin/users",
+  "/games": "/admin/games",
+  "/taxonomy": "/admin/taxonomy",
+  "/imports": "/admin/imports",
+  "/import": "/admin/imports",
+  "/links": "/admin/links",
+  "/resources": "/admin/resources",
+};
+
 function normHost(host: string) {
   return host.toLowerCase().split(":")[0];
 }
@@ -74,7 +91,15 @@ export function decideAdminRoute(input: AdminRouteInput): AdminRouteDecision {
     // 页面里的绝对路径 /admin/xxx：不要再加一层前缀
     if (isReal) return { kind: "pass" };
 
-    return { kind: "rewrite", pathname: REAL + (pathname === "/" ? "" : pathname) };
+    // 常用别名 → 对应后台页，避免拼成 /admin/submit 这种不存在的路径
+    const alias = ALIASES[pathname.replace(/\/+$/, "") || "/"];
+    if (alias) return { kind: "rewrite", pathname: alias };
+
+    // 首页进控制台
+    if (pathname === "/" || pathname === "") return { kind: "rewrite", pathname: REAL };
+
+    // 其余未知路径统一回控制台，而不是给一个 404
+    return { kind: "redirect", to: REAL };
   }
 
   /* ───── 主域访问后台路径：统一跳到子域名 ───── */
