@@ -7,6 +7,7 @@ import { FavoriteButton } from "@/components/resource/favorite-button";
 import { ReportDialog } from "@/components/resource/report-dialog";
 import { JsonLd } from "@/components/seo/json-ld";
 import { breadcrumbJsonLd, resourceJsonLd } from "@/lib/seo";
+import { getSessionUser } from "@/lib/auth";
 import { ResourceCard } from "@/components/resource/resource-card";
 import { StatusDot, type LinkStatus } from "@/components/ui/status-dot";
 import { Chip } from "@/components/ui/chip";
@@ -77,6 +78,8 @@ export default async function ResourcePage({
   if (!data) notFound();
 
   const { resource, category, links, tags, gameTag } = data;
+  const viewer = await getSessionUser();
+  const loggedIn = Boolean(viewer);
   const platforms = JSON.parse(resource.platforms || "[]") as string[];
 
   const primary = links.find((l) => l.isPrimary) ?? links[0];
@@ -254,6 +257,8 @@ export default async function ResourcePage({
                 links.map((l) => (
                   <LinkRow
                     key={l.id}
+                    loggedIn={loggedIn}
+                    loginHref={`/login?next=${encodeURIComponent(`/r/${resource.slug}`)}`}
                     link={{
                       id: l.id,
                       provider: l.provider,
