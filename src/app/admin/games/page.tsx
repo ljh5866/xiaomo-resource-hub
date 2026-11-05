@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { all } from "@/db/client";
+import { BulkGameForm } from "@/components/admin/bulk-game-form";
 import {
   deleteTagForm,
   newTagForm,
@@ -44,6 +45,12 @@ export default async function AdminGamesPage() {
       WHERE t.kind = 'game'
       GROUP BY t.id
       ORDER BY count DESC, t.id`,
+  );
+
+  const categories = all<{ slug: string; name: string; count: number }>(
+    `SELECT c.slug, c.name,
+            (SELECT COUNT(*) FROM resources r WHERE r.category_id = c.id AND r.status = 'published') AS count
+       FROM categories c ORDER BY c.sort_order, c.id`,
   );
 
   const candidates = all<{ id: number; slug: string; name: string; count: number }>(
@@ -193,6 +200,20 @@ export default async function AdminGamesPage() {
             </tbody>
           </table>
         </div>
+      </section>
+
+      {/* 批量归类 */}
+      <section>
+        <h2 className="border-b border-line pb-2 text-[15px] font-semibold text-ink">
+          批量修改所属游戏
+        </h2>
+        <p className="mt-1 mb-3 text-[11px] text-dim">
+          之前导入的 MOD 也能一起改：选「全部已发布资源」或「只处理还没归类的」，先预览再执行。
+        </p>
+        <BulkGameForm
+          games={games.map((g) => ({ slug: g.slug, name: g.name, count: g.count }))}
+          categories={categories}
+        />
       </section>
 
       {/* 待归类 */}
