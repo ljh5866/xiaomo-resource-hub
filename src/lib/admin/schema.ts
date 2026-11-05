@@ -8,6 +8,7 @@ export const LINK_PROVIDERS = [
   "123",
   "uc",
   "115",
+  "lanzou",
   "self",
 ] as const;
 

@@ -12,6 +12,7 @@
  *   - 简介取「整合包介绍」文本框里的段落，剔掉图片占位与小标题。
  */
 import { setTimeout as sleep } from "node:timers/promises";
+import { providerOf } from "../src/lib/providers.ts";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
@@ -104,7 +105,11 @@ function parsePage(url, html) {
       /* 忽略坏链接 */
     }
     const label = stripTags(m[2]);
-    if (real && !links.some((l) => l.url === real)) links.push({ label, url: real });
+    if (!real || links.some((l) => l.url === real)) continue;
+    // 只保留网盘链接：官方站 / B站 / 论坛 一律丢掉
+    const provider = providerOf(real);
+    if (!provider) continue;
+    links.push({ label, url: real, provider });
   }
 
   /* 简介：取 text-area 文本框，按 <p> 切段 */

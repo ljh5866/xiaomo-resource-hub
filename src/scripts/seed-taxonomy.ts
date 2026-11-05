@@ -45,6 +45,8 @@ const CATEGORIES: [slug: string, name: string, icon: string, description: string
   ];
 
 const TAGS: [slug: string, name: string][] = [
+  // 游戏标签：不同游戏各自的 MOD 都靠它归类
+  ["minecraft", "我的世界"],
   ["windows", "Windows"],
   ["mac", "macOS"],
   ["android", "Android"],

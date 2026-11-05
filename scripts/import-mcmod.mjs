@@ -136,9 +136,11 @@ for (const item of scraped) {
     continue;
   }
 
-  const primary = item.links.find((l) => /官方|官网/.test(l.label)) ?? item.links[0];
+  // 只要网盘链接（抓取阶段已按域名过滤），一条都没有就不导入
+  const driveLinks = item.links.filter((l) => l.provider);
+  const primary = driveLinks[0];
   if (!primary) {
-    report.push({ url: item.source, status: "跳过", detail: "没有可用下载链接" });
+    report.push({ url: item.source, status: "跳过", detail: "没有网盘下载链接" });
     continue;
   }
 
@@ -204,7 +206,7 @@ for (const item of scraped) {
 
       const rid = Number(info.lastInsertRowid);
 
-      for (const [i, l] of item.links.entries()) {
+      for (const [i, l] of driveLinks.entries()) {
         db.prepare(
           `INSERT INTO resource_links (resource_id, url, url_hash, provider, label, is_primary, status, created_at)
            VALUES (?,?,?,?,?,?,'unknown',unixepoch())`,
@@ -212,10 +214,16 @@ for (const item of scraped) {
           rid,
           l.url,
           createHash("sha256").update(l.url).digest("hex"),
-          l.label,
+          l.provider ?? "self",
           l.label,
           i === 0 ? 1 : 0,
         );
+      }
+
+      // mcmod 全是 MC 内容：固定打「我的世界」标签
+      const mcTag = db.prepare("SELECT id FROM tags WHERE slug = ?").get("minecraft");
+      if (mcTag) {
+        db.prepare("INSERT OR IGNORE INTO resource_tags (resource_id, tag_id) VALUES (?,?)").run(rid, mcTag.id);
       }
 
       for (const tid of tagIds(item.tags)) {
@@ -232,7 +240,7 @@ for (const item of scraped) {
     report.push({
       url: item.source,
       status: "预演",
-      detail: `${code} ${title} · 标签 ${item.tags.join("/")} · 链接 ${item.links.length}`,
+      detail: `${code} ${title} · 标签 ${item.tags.join("/")} · 网盘链接 ${driveLinks.length}`,
     });
   }
 }
