@@ -19,9 +19,38 @@ export const GH_API = "https://api.github.com";
 /** 只申请 star 所需的最小权限 */
 const SCOPE = "public_repo";
 
+/**
+ * 兜底读取：有些部署方式（systemd 没加载 EnvironmentFile、pm2、容器）
+ * 会把 .env 里的变量漏掉。这里直接读一次项目根的 .env，避免「明明写了却读到空」。
+ */
+import fs from "node:fs";
+import path from "node:path";
+
+let cachedFileEnv: Record<string, string> | null = null;
+
+function readEnvFile() {
+  if (cachedFileEnv) return cachedFileEnv;
+  const out: Record<string, string> = {};
+  try {
+    const file = path.join(process.cwd(), ".env");
+    for (const line of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
+      const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+      if (m) out[m[1]] = m[2].replace(/^['"]|['"]$/g, "").trim();
+    }
+  } catch {
+    /* 没文件就算了 */
+  }
+  cachedFileEnv = out;
+  return out;
+}
+
+function env(name: string) {
+  return (process.env[name] ?? readEnvFile()[name] ?? "").trim();
+}
+
 export function githubConfigured() {
-  const id = (process.env.GITHUB_CLIENT_ID ?? "").trim();
-  const secret = (process.env.GITHUB_CLIENT_SECRET ?? "").trim();
+  const id = env("GITHUB_CLIENT_ID");
+  const secret = env("GITHUB_CLIENT_SECRET");
   // 占位符 / 明显没填的值一律当未配置，避免把用户甩到 GitHub 报错页
   const placeholder = /^(你的|xxx|changeme|your[-_]?|client[-_]?id$|client[-_]?secret$)/i;
   if (!id || !secret || placeholder.test(id) || placeholder.test(secret)) return false;
@@ -31,7 +60,7 @@ export function githubConfigured() {
 
 export function authorizeUrl(state: string, redirectUri: string) {
   const u = new URL(GH_AUTHORIZE);
-  u.searchParams.set("client_id", process.env.GITHUB_CLIENT_ID ?? "");
+  u.searchParams.set("client_id", env("GITHUB_CLIENT_ID"));
   u.searchParams.set("redirect_uri", redirectUri);
   u.searchParams.set("scope", SCOPE);
   u.searchParams.set("state", state);
@@ -44,8 +73,8 @@ export async function exchangeCode(code: string, redirectUri: string) {
     method: "POST",
     headers: { accept: "application/json", "content-type": "application/json" },
     body: JSON.stringify({
-      client_id: process.env.GITHUB_CLIENT_ID,
-      client_secret: process.env.GITHUB_CLIENT_SECRET,
+      client_id: env("GITHUB_CLIENT_ID"),
+      client_secret: env("GITHUB_CLIENT_SECRET"),
       code,
       redirect_uri: redirectUri,
     }),
