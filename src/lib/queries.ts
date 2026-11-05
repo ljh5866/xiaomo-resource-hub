@@ -494,3 +494,31 @@ export async function listWeeklyHotRepos(limit = 24): Promise<ResourceCardData[]
   );
   return fallback.map(toCard);
 }
+/**
+ * 本周热门（独立视图）：GitHub 官方 Trending 周榜。
+ *
+ * 读 trending_repos（sync-github-trending.mjs 每天写入），
+ * 如果站内已收录同仓库项目，则带上 slug，卡片可以直接点进详情页。
+ */
+export async function listTrendingRepos(limit = 30) {
+  return all<{
+    rank: number;
+    fullName: string;
+    url: string;
+    starsWeek: number | null;
+    starsTotal: number | null;
+    language: string | null;
+    description: string | null;
+    slug: string | null;
+  }>(
+    `SELECT t.rank, t.full_name AS fullName, t.url,
+            t.stars_week AS starsWeek, t.stars_total AS starsTotal,
+            t.language, t.description, r.slug
+       FROM trending_repos t
+       LEFT JOIN resources r ON r.source_url = t.url AND r.status = 'published'
+      WHERE t.day = (SELECT MAX(day) FROM trending_repos)
+      ORDER BY t.rank
+      LIMIT ?`,
+    limit,
+  );
+}

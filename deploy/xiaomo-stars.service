@@ -10,6 +10,6 @@ User=www-data
 Group=www-data
 Environment=NODE_ENV=production
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
-ExecStart=/usr/bin/env node --use-system-ca --import tsx scripts/sync-github-stars.mjs
+ExecStart=/bin/sh -c "/usr/bin/env node --use-system-ca --import tsx scripts/sync-github-stars.mjs; /usr/bin/env node --use-system-ca scripts/sync-github-trending.mjs"
 StandardOutput=append:/var/log/xiaomo-stars.log
 StandardError=append:/var/log/xiaomo-stars.log

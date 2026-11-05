@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CategoryRail } from "@/components/layout/category-rail";
 import { FilterChips } from "@/components/resource/filter-chips";
+import { TrendingList } from "@/components/resource/trending-list";
 import { ResourceCard } from "@/components/resource/resource-card";
 import { Pagination } from "@/components/ui/pagination";
 import { JsonLd } from "@/components/seo/json-ld";
@@ -14,6 +15,7 @@ import {
   listTagsByKind,
   listTagsOfKind,
   listWeeklyHotRepos,
+  listTrendingRepos,
 } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -113,8 +115,9 @@ export default async function CategoryPage({
       : Promise.resolve([]),
   ]);
 
-  // 「本周热门」是按 star 周增量实时算的，单独走一条查询，不做分页
-  const items = hot ? await listWeeklyHotRepos(24) : itemsRaw;
+  // 「本周热门」是独立视图：直接读 GitHub Trending 周榜，不参与站内筛选
+  const trending = hot ? await listTrendingRepos(30) : [];
+  const items = hot ? [] : itemsRaw;
 
   return (
     <div className="container-page py-8 lg:py-12">
@@ -149,12 +152,24 @@ export default async function CategoryPage({
               {current.description ?? "该分类下的全部资源，按更新时间排序。"}
             </p>
             <p className="mt-3 font-mono text-[11px] tracking-wide text-dim">
-              {hot ? `${items.length} 个项目 · 按最近 7 天 star 增长排序` : `共 ${total} 项`}
+              {hot ? "本周热门 · GitHub Trending 周榜（按本周新增 star）" : `共 ${total} 项`}
               {!hot && totalPages > 1 && ` · 第 ${page} / ${totalPages} 页`}
             </p>
           </header>
 
-          {filter && (
+          {hot && (
+            <div className="mt-5">
+              <Link
+                href={`/c/${category}`}
+                scroll={false}
+                className="inline-flex min-h-8 items-center gap-1 rounded-full border border-line px-3 text-[12px] text-muted transition-colors hover:border-line-strong hover:text-ink"
+              >
+                ← 返回全部项目
+              </Link>
+            </div>
+          )}
+
+          {filter && !hot && (
             <div className="flex flex-wrap items-center gap-2">
               <FilterChips
                 categorySlug={category}
@@ -175,7 +190,9 @@ export default async function CategoryPage({
             </div>
           )}
 
-          {items.length === 0 ? (
+          {hot ? (
+            <TrendingList items={trending} />
+          ) : items.length === 0 ? (
             <div className="mt-8 rounded-[14px] border border-dashed border-line p-12 text-center">
               <p className="font-sans text-[18px] font-semibold text-ink">
                 {activeSlug ? "这个筛选下还没有资源" : "这里还没有内容"}
