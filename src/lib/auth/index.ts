@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { get } from "@/db/client";
-import { verifyPassword } from "@/lib/password";
+import { get, run } from "@/db/client";
+import { hashPassword, needsRehash, verifyPassword } from "@/lib/password";
 import { clientKey, hit, reset } from "@/lib/rate-limit";
 import authConfig from "./config";
 
@@ -57,6 +57,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // 只允许 active 账号登录：pending 待审核、banned 封禁都拒绝
         if ((user.status ?? "active") !== "active") return null;
         if (!verifyPassword(password, user.password_hash)) return null;
+
+        // 老格式（bcrypt，从 Supabase 迁过来的）登录成功后顺手升级成 scrypt：
+        // 用户无感，下次登录就是新格式
+        if (needsRehash(user.password_hash)) {
+          try {
+            run("UPDATE users SET password_hash = ? WHERE id = ?", hashPassword(password), user.id);
+          } catch (e) {
+            console.warn("[auth] rehash failed", e);
+          }
+        }
 
         reset(key);
 

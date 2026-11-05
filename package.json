@@ -25,10 +25,11 @@
     "covers:gen": "tsx src/scripts/gen-covers.ts",
     "covers:gc": "tsx src/scripts/covers-gc.ts",
     "backup": "node scripts/backup.mjs",
-    "test": "node --import tsx --test tests/tokenize.test.ts tests/extract-code.test.ts tests/utils.test.ts tests/password.test.ts tests/seo.test.ts tests/csv.test.ts tests/email-code.test.ts tests/admin-routing.test.ts",
+    "test": "node --import tsx --test tests/tokenize.test.ts tests/extract-code.test.ts tests/utils.test.ts tests/password.test.ts tests/seo.test.ts tests/csv.test.ts tests/email-code.test.ts tests/password-bcrypt.test.ts tests/admin-routing.test.ts",
     "db:reset": "node -e \"require('node:fs').rmSync('./data/app.db',{force:true})\" && pnpm db:push && pnpm db:seed"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.4.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.44.6",
