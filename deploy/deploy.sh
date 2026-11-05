@@ -81,6 +81,16 @@ S=$(date +%s)
 pnpm db:migrate
 ok_step "迁移" "$(since $S)"
 
+# ─────────── 4.5 让 systemd 一定读到 .env ───────────
+# Next 的 env 加载在部分构建模式下不可靠，而 SMTP 这类只在运行时用的变量
+# 必须确保进程真的拿到。这里给 unit 补一行 EnvironmentFile（幂等）。
+UNIT="/etc/systemd/system/${SERVICE}.service"
+if [[ -f "$UNIT" ]] && ! sudo grep -q "^EnvironmentFile=" "$UNIT"; then
+  sudo sed -i "/^\[Service\]/a EnvironmentFile=-${APP_DIR}/.env" "$UNIT"
+  sudo systemctl daemon-reload
+  printf '  ✓ 已给 %s 补上 EnvironmentFile\n' "$UNIT"
+fi
+
 # ─────────── 5. 停服务 + 构建 ───────────
 step "5/7 停服务并构建"
 S=$(date +%s)
