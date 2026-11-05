@@ -25,10 +25,21 @@ if (!cat) {
 
 const tag = (slug) => db.prepare("SELECT id FROM tags WHERE slug = ?").get(slug)?.id;
 
+const TAG_NAMES = {
+  "android-app": "安卓端",
+  "ios-app": "iOS 端",
+  "desktop-app": "桌面端",
+  "tool-lib": "工具库",
+};
+
+// 标签缺失就自己补，不要求先跑 seed
 for (const slug of PRIORITY) {
   if (!tag(slug)) {
-    console.error(`缺少标签 ${slug}，先跑：node node_modules/tsx/dist/cli.mjs src/scripts/seed-taxonomy.ts`);
-    process.exit(1);
+    db.prepare("INSERT OR IGNORE INTO tags (slug, name, use_count, kind) VALUES (?,?,0,'gh')").run(
+      slug,
+      TAG_NAMES[slug] ?? slug,
+    );
+    console.log(`  + 补建标签 ${TAG_NAMES[slug] ?? slug}`);
   }
 }
 
