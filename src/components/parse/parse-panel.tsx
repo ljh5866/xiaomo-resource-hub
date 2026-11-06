@@ -68,7 +68,6 @@ export function ParsePanel({
   const [share, setShare] = useState<Share | null>(null);
   const [error, setError] = useState<{ message: string; code?: string } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
-  const [busyFid, setBusyFid] = useState<string | null>(null);
   const [crumbs, setCrumbs] = useState<{ fid: string; name: string }[]>([]);
 
   const load = useCallback(
@@ -130,45 +129,9 @@ export function ParsePanel({
   }
 
   /**
-   * 绑定自己账号的用户走「直链直出」：服务器只发一个 URL，流量走用户自己的带宽。
-   * 浏览器没登录同一个夸克账号时会 412，所以旁边保留「经服务器」这条稳的路。
+   * 下载统一走 /api/pan/download（服务器中转）。
+   * 直链直出已验证不可行：夸克直链绑定账号 Cookie，用户浏览器打开会 412 / ERR_INVALID_RESPONSE。
    */
-  async function directDownload(f: PanFile) {
-    setBusyFid(f.fid);
-    setError(null);
-    try {
-      const res = await fetch("/api/pan/direct", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          linkId,
-          fid: f.fid,
-          name: f.name,
-          size: f.size,
-          token: f.token ?? null,
-          pdirFid: currentDir(),
-        }),
-      });
-      const json = (await res.json()) as {
-        ok?: boolean;
-        direct?: { url: string };
-        error?: string;
-        code?: string;
-      };
-      if (!res.ok || !json.ok || !json.direct) {
-        setError({ message: json.error ?? "取直链失败", code: json.code });
-        return;
-      }
-      // 同页导航：浏览器看到附件的响应头就直接下载，不新开标签、不会被弹窗拦截
-      // （之前用 a.target="_blank" 在异步回调里点击，Chrome/Edge 判定非用户手势，直接拦掉）
-      window.location.assign(json.direct.url);
-    } catch {
-      setError({ message: "网络异常，稍后再试" });
-    } finally {
-      setBusyFid(null);
-    }
-  }
-
   async function copy(text: string, key: string) {
     try {
       await navigator.clipboard.writeText(text);
@@ -294,7 +257,6 @@ export function ParsePanel({
           <ul className="divide-y divide-line rounded-[8px] border border-line">
             {files.map((f) => {
               const href = downloadHref(f);
-              const ownAccount = credentialSource === "user";
               return (
                 <li key={f.fid} className="flex flex-wrap items-center gap-2 px-4 py-3">
                   <FileText className="size-4 shrink-0 text-dim" strokeWidth={1.5} aria-hidden />
@@ -308,48 +270,12 @@ export function ParsePanel({
                     >
                       去绑定网盘
                     </a>
-                  ) : ownAccount ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => void directDownload(f)}
-                        disabled={busyFid === f.fid}
-                        className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-[6px] bg-accent px-3 text-[12px] font-medium text-on-accent transition-colors hover:bg-accent-strong disabled:opacity-60"
-                        title="用你自己的夸克账号取链，浏览器直接下载，走你的带宽"
-                      >
-                        {busyFid === f.fid ? (
-                          <Loader2 className="size-3.5 animate-spin" strokeWidth={2} aria-hidden />
-                        ) : (
-                          <Download className="size-3.5" strokeWidth={1.5} aria-hidden />
-                        )}
-                        下载
-                      </button>
-                      <a
-                        href={href}
-                        className="inline-flex min-h-8 items-center rounded-[6px] border border-line px-2 text-[11px] text-muted hover:border-accent hover:text-accent"
-                        title="直链打不开时用：经本站服务器中转，同样受你的网盘账号限速"
-                      >
-                        备用
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => void copy(new URL(href, window.location.origin).toString(), f.fid)}
-                        className="inline-flex min-h-8 w-8 cursor-pointer items-center justify-center rounded-[6px] border border-line text-muted hover:border-accent hover:text-accent"
-                        title="复制下载地址（需登录后访问）"
-                        aria-label="复制下载地址"
-                      >
-                        {copied === f.fid ? (
-                          <Check className="size-3 text-ok" strokeWidth={2} aria-hidden />
-                        ) : (
-                          <Copy className="size-3" strokeWidth={1.5} aria-hidden />
-                        )}
-                      </button>
-                    </>
                   ) : (
                     <>
                       <a
                         href={href}
                         className="inline-flex min-h-8 items-center gap-1.5 rounded-[6px] bg-accent px-3 text-[12px] font-medium text-on-accent transition-colors hover:bg-accent-strong"
+                        title="经本站服务器、用你自己的账号取链并中转，支持断点续传"
                       >
                         <Download className="size-3.5" strokeWidth={1.5} aria-hidden />
                         下载
@@ -376,8 +302,8 @@ export function ParsePanel({
 
           <div className="space-y-1 px-1 text-[11px] leading-relaxed text-dim">
             <p>
-              「下载」= 用你自己的账号取直链、浏览器直接下，速度取决于你的{providerName}账号（免费号通常
-              100–500 KB/s，会员才会快）。直链打不开（提示 412）时用「备用」，由本站服务器中转。
+              「下载」由本站服务器用你自己的账号取链并中转（夸克直链绑定账号，浏览器直接打开会
+              412 / 响应非法）。速度取决于你的{providerName}账号，本站会用多连接并发尽量拉满。
             </p>
             <p>取链时会把文件转存一份到你自己的网盘，下载完可以在夸克里删掉。</p>
           </div>

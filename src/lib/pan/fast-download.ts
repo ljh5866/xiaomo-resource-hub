@@ -72,6 +72,10 @@ export function planRanges(total: number, opts?: RangeDownloadOptions): RangePla
    * 每片按 maxChunk（4MB）算，至少开 concurrency 片。
    * 片太小会让「每片一次握手（3–6 秒）」的开销盖过并发收益。
    */
+  // 并发 <= 1 表示强制单流（排查用：PAN_RANGE_CONCURRENCY=1）
+  if (o.concurrency <= 1) {
+    return { total, chunkSize: total, chunkCount: 1, parallel: false };
+  }
   const byTarget = Math.ceil(total / o.maxChunk);
   const chunkCount = Math.max(o.concurrency, byTarget, 2);
   const raw = Math.ceil(total / chunkCount);
