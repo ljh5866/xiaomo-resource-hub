@@ -95,19 +95,36 @@ let links = 0;
 
 for (const r of rows) {
   const slug = `3dm-${r.id}`;
-  const exists = db.prepare("SELECT id FROM resources WHERE slug = ? LIMIT 1").get(slug);
+  const coverName = `3dm-${r.id}.jpg`;
+  const srcFile = join(COVER_SRC, coverName);
+  const hasCover = existsSync(srcFile);
+  const newCoverUrl = hasCover ? `/files/covers/${coverName}` : null;
+
+  const exists = db.prepare("SELECT id, cover_url AS coverUrl FROM resources WHERE slug = ? LIMIT 1").get(slug);
+
+  /**
+   * 已存在也要修两件事（幂等）：
+   *   · platforms 早期被写成裸字符串 "windows"，读取端 JSON.parse 会炸 → 统一成 ["windows"]
+   *   · cover_url 为空但封面文件现在有了 → 补上
+   */
   if (exists) {
+    if (!DRY) {
+      db.prepare("UPDATE resources SET platforms = ? WHERE id = ?").run(JSON.stringify(["windows"]), exists.id);
+      if (!exists.coverUrl && newCoverUrl) {
+        copyFileSync(srcFile, join(COVER_DST, coverName));
+        db.prepare("UPDATE resources SET cover_url = ? WHERE id = ?").run(newCoverUrl, exists.id);
+        covers += 1;
+      }
+    }
     skipped += 1;
     continue;
   }
 
   // 封面
   let coverUrl = null;
-  const coverName = `3dm-${r.id}.jpg`;
-  const srcFile = join(COVER_SRC, coverName);
-  if (existsSync(srcFile)) {
+  if (hasCover) {
     if (!DRY) copyFileSync(srcFile, join(COVER_DST, coverName));
-    coverUrl = `/files/covers/${coverName}`;
+    coverUrl = newCoverUrl;
     covers += 1;
   }
 
@@ -138,7 +155,7 @@ for (const r of rows) {
       cat.id,
       coverUrl,
       null,
-      "windows",
+      JSON.stringify(["windows"]),
       "zh",
       `https://soft.3dmgame.com/down/${r.id}.html`,
     );
