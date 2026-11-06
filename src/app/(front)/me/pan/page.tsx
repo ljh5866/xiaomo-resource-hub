@@ -6,6 +6,7 @@ import { getCredentialRow } from "@/lib/pan/credentials";
 import { hasSiteCredential } from "@/lib/pan/quark";
 import { unbindQuarkAction } from "@/lib/pan/actions";
 import { PanBindForm } from "@/components/me/pan-bind-form";
+import { PanQrBind } from "@/components/me/pan-qr-bind";
 
 export const dynamic = "force-dynamic";
 
@@ -91,6 +92,20 @@ export default async function PanBindPage() {
                 </p>
               )}
               <PanBindForm />
+
+              <details className="mt-5 border-t border-line pt-3">
+                <summary className="cursor-pointer text-[12px] text-muted hover:text-ink">
+                  扫码登录（实验性，可能失败）
+                </summary>
+                <div className="mt-4 space-y-3">
+                  <p className="rounded-[6px] bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-muted">
+                    夸克的扫码登录不在 HTTP 层交接登录态，服务端实测拿到的只有访客 cookie
+                    （`isQuark=false`、网盘接口返回 401 guest），所以扫码成功后大概率仍然绑不上。
+                    优先用上面的手动粘贴；扫码只作为备选。
+                  </p>
+                  <PanQrBind />
+                </div>
+              </details>
             </>
           )}
         </div>
