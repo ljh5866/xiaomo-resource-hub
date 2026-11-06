@@ -72,9 +72,12 @@ for (const [name, slug] of Object.entries(SLUG)) {
 }
 console.log(`标签：${tagIds.size} 个 soft 分类`);
 
-// 2) 生成 code
+// 2) 生成 code —— 必须取现有最大号 +1，不能用 COUNT（已有编号不连续，COUNT 会撞车）
 const year = new Date().getFullYear();
-let seq = db.prepare("SELECT COUNT(*) AS n FROM resources WHERE code LIKE ?").get(`XM-${year}-%`).n;
+const maxRow = db
+  .prepare("SELECT code FROM resources WHERE code LIKE ? ORDER BY code DESC LIMIT 1")
+  .get(`XM-${year}-%`);
+let seq = maxRow ? Number(String(maxRow.code).split("-")[2]) || 0 : 0;
 
 const insRes = db.prepare(
   `INSERT INTO resources
