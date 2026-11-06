@@ -104,15 +104,19 @@ export async function listResources(
   const where: string[] = ["r.status = 'published'"];
   const params: (string | number)[] = [];
 
-  if (gameSlug) {
-    where.push("EXISTS (SELECT 1 FROM resource_tags rt JOIN tags t ON t.id = rt.tag_id WHERE rt.resource_id = r.id AND t.slug = ?)");
+  // 标签域：game 只属于 mods、genre 只属于 games、gh 只属于 opensource。
+  // 分类页里传了不匹配的筛选参数时直接忽略，避免「?game=minecraft」把 galgame 也筛出来。
+  const inHome = (home: string) => !categorySlug || categorySlug === home;
+
+  if (gameSlug && inHome("mods")) {
+    where.push("EXISTS (SELECT 1 FROM resource_tags rt JOIN tags t ON t.id = rt.tag_id WHERE rt.resource_id = r.id AND t.slug = ? AND t.kind = 'game')");
     params.push(gameSlug);
   }
-  if (genreSlug) {
+  if (genreSlug && inHome("games")) {
     where.push("EXISTS (SELECT 1 FROM resource_tags rt JOIN tags t ON t.id = rt.tag_id WHERE rt.resource_id = r.id AND t.slug = ? AND t.kind = 'genre')");
     params.push(genreSlug);
   }
-  if (ghSlug) {
+  if (ghSlug && inHome("opensource")) {
     where.push("EXISTS (SELECT 1 FROM resource_tags rt JOIN tags t ON t.id = rt.tag_id WHERE rt.resource_id = r.id AND t.slug = ? AND t.kind = 'gh')");
     params.push(ghSlug);
   }
@@ -149,24 +153,21 @@ export async function countResources(
   const { categorySlug, gameSlug, genreSlug, ghSlug, hot } = opts;
   const where = ["r.status = 'published'"];
   const params: string[] = [];
+  const inHome = (home: string) => !categorySlug || categorySlug === home;
 
   if (categorySlug) {
     where.push("c.slug = ?");
     params.push(categorySlug);
   }
-  if (gameSlug) {
-    where.push("EXISTS (SELECT 1 FROM resource_tags rt JOIN tags t ON t.id = rt.tag_id WHERE rt.resource_id = r.id AND t.slug = ?)");
+  if (gameSlug && inHome("mods")) {
+    where.push("EXISTS (SELECT 1 FROM resource_tags rt JOIN tags t ON t.id = rt.tag_id WHERE rt.resource_id = r.id AND t.slug = ? AND t.kind = 'game')");
     params.push(gameSlug);
   }
-  if (genreSlug) {
+  if (genreSlug && inHome("games")) {
     where.push("EXISTS (SELECT 1 FROM resource_tags rt JOIN tags t ON t.id = rt.tag_id WHERE rt.resource_id = r.id AND t.slug = ? AND t.kind = 'genre')");
     params.push(genreSlug);
   }
-  if (genreSlug) {
-    where.push("EXISTS (SELECT 1 FROM resource_tags rt JOIN tags t ON t.id = rt.tag_id WHERE rt.resource_id = r.id AND t.slug = ? AND t.kind = 'genre')");
-    params.push(genreSlug);
-  }
-  if (ghSlug) {
+  if (ghSlug && inHome("opensource")) {
     where.push("EXISTS (SELECT 1 FROM resource_tags rt JOIN tags t ON t.id = rt.tag_id WHERE rt.resource_id = r.id AND t.slug = ? AND t.kind = 'gh')");
     params.push(ghSlug);
   }

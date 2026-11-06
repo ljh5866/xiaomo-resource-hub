@@ -10,9 +10,11 @@ const field =
 export function BulkGameForm({
   games,
   categories,
+  coverage,
 }: {
   games: { slug: string; name: string; count: number }[];
   categories: { slug: string; name: string; count: number }[];
+  coverage?: { total: number; assigned: number; unassigned: number };
 }) {
   const [state, action, pending] = useActionState<BulkState, FormData>(bulkGameAction, {
     ok: true,
@@ -22,13 +24,17 @@ export function BulkGameForm({
   return (
     <div className="rounded-[8px] border border-line">
       <form action={action} className="space-y-4 p-4">
+        <p className="rounded-[6px] bg-surface-2 px-3 py-2 text-[11px] text-muted">
+          只改「游戏 MODS」分类的资源，热门游戏 / 开源项目不会被波及。
+          {coverage ? `（该分类 ${coverage.total} 条，已归类 ${coverage.assigned}，未归类 ${coverage.unassigned}）` : ""}
+        </p>
         <div className="grid gap-3 md:grid-cols-2">
           <label className="block">
             <span className="block text-[11px] text-dim">目标游戏</span>
-            <select name="gameSlug" defaultValue="minecraft" className={field + " mt-1 w-full"}>
+            <select name="gameSlug" defaultValue={games[0]?.slug ?? ""} className={field + " mt-1 w-full"}>
               {games.map((g) => (
                 <option key={g.slug} value={g.slug}>
-                  {g.name}（现有 {g.count} 条）
+                  {g.name}（该分类 {g.count} 条）
                 </option>
               ))}
             </select>
@@ -37,8 +43,10 @@ export function BulkGameForm({
           <label className="block">
             <span className="block text-[11px] text-dim">范围</span>
             <select name="scope" defaultValue="unassigned" className={field + " mt-1 w-full"}>
-              <option value="unassigned">只处理还没归类的资源</option>
-              <option value="all">全部已发布资源</option>
+              <option value="unassigned">
+                还没归类的{coverage ? `（${coverage.unassigned} 条）` : ""}
+              </option>
+              <option value="all">该分类下全部{coverage ? `（${coverage.total} 条）` : ""}</option>
               <option value="category">指定分类下的全部</option>
               <option value="game">从某个游戏迁移过来</option>
               <option value="ids">指定资源 ID</option>

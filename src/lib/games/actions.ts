@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { applyBulkGame, previewBulkGame, type GameScope } from "@/lib/games/bulk";
+import { fixTagScope } from "@/lib/games/fix-scope";
 
 export type BulkState = {
   ok: boolean;
@@ -75,4 +76,17 @@ export async function bulkGameAction(_prev: BulkState, formData: FormData): Prom
     message: `已把 ${res.updated} 条资源的游戏标签设为「${res.gameName}」`,
     preview: brief,
   };
+}
+
+/** 一键清理跨分类标签（game 挂在 mods 之外、genre 挂在 games 之外…） */
+export async function fixTagScopeAction(): Promise<void> {
+  const admin = await requireAdmin();
+  if (!admin) return;
+
+  fixTagScope();
+
+  revalidatePath("/admin/games");
+  revalidatePath("/admin/taxonomy");
+  revalidatePath("/");
+  for (const slug of ["mods", "games", "opensource"]) revalidatePath(`/c/${slug}`);
 }

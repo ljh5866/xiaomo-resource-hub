@@ -22,28 +22,36 @@ export type BulkPreview = {
   sample: { id: number; code: string; title: string; current: string | null }[];
 };
 
+/**
+ * 游戏标签只属于「游戏 MODS」分类。
+ * 所有批量范围都在这个分类内求值 —— 否则「只处理还没归类的资源」会把
+ * galgame、开源项目一起圈进来（历史事故：821 条全被挂上「我的世界」）。
+ */
+export const GAME_CATEGORY = "mods";
+
 function scopeWhere(scope: GameScope): { sql: string; params: (string | number)[] } {
   switch (scope.kind) {
     case "all":
-      return { sql: "1=1", params: [] };
+      return { sql: "c.slug = ?", params: [GAME_CATEGORY] };
     case "unassigned":
       return {
-        sql: `NOT EXISTS (SELECT 1 FROM resource_tags rt2 JOIN tags t2 ON t2.id = rt2.tag_id
+        sql: `c.slug = ? AND NOT EXISTS (SELECT 1 FROM resource_tags rt2 JOIN tags t2 ON t2.id = rt2.tag_id
                           WHERE rt2.resource_id = r.id AND t2.kind = 'game')`,
-        params: [],
+        params: [GAME_CATEGORY],
       };
     case "category":
-      return { sql: "c.slug = ?", params: [scope.slug] };
+      // 现选的分类必须在 mods 之内，传别的分类等于零命中
+      return { sql: "c.slug = ? AND c.slug = ?", params: [GAME_CATEGORY, scope.slug] };
     case "game":
       return {
-        sql: `EXISTS (SELECT 1 FROM resource_tags rt3 JOIN tags t3 ON t3.id = rt3.tag_id
+        sql: `c.slug = ? AND EXISTS (SELECT 1 FROM resource_tags rt3 JOIN tags t3 ON t3.id = rt3.tag_id
                         WHERE rt3.resource_id = r.id AND t3.slug = ?)`,
-        params: [scope.slug],
+        params: [GAME_CATEGORY, scope.slug],
       };
     case "ids":
       return {
-        sql: `r.id IN (${scope.ids.length ? scope.ids.map(() => "?").join(",") : "0"})`,
-        params: scope.ids,
+        sql: `c.slug = ? AND r.id IN (${scope.ids.length ? scope.ids.map(() => "?").join(",") : "0"})`,
+        params: [GAME_CATEGORY, ...scope.ids],
       };
   }
 }
@@ -127,14 +135,35 @@ export function refreshTagCounts() {
   );
 }
 
-/** 每个游戏当前的资源数（后台列表用） */
+/** 每个游戏在「游戏 MODS」分类下的资源数（后台列表用，跨类不计） */
 export function gameCounts(): { slug: string; name: string; count: number }[] {
   return all<{ slug: string; name: string; count: number }>(
-    `SELECT t.slug, t.name, COUNT(rt.resource_id) AS count
+    `SELECT t.slug, t.name,
+            (SELECT COUNT(*) FROM resource_tags rt
+               JOIN resources r ON r.id = rt.resource_id
+               JOIN categories c ON c.id = r.category_id
+              WHERE rt.tag_id = t.id AND c.slug = ? AND r.status = 'published') AS count
        FROM tags t
-       LEFT JOIN resource_tags rt ON rt.tag_id = t.id
       WHERE t.kind = 'game'
-      GROUP BY t.id
       ORDER BY count DESC, t.id`,
+    GAME_CATEGORY,
   );
+}
+
+/** mods 分类的归类进度：总数 / 已归类 / 未归类 —— 批量操作前先看这个 */
+export function gameCoverage(): { total: number; assigned: number; unassigned: number } {
+  const row = get<{ total: number; assigned: number }>(
+    `SELECT COUNT(*) AS total,
+            SUM(CASE WHEN EXISTS (
+                  SELECT 1 FROM resource_tags rt JOIN tags t ON t.id = rt.tag_id
+                   WHERE rt.resource_id = r.id AND t.kind = 'game'
+                ) THEN 1 ELSE 0 END) AS assigned
+       FROM resources r
+       JOIN categories c ON c.id = r.category_id
+      WHERE c.slug = ? AND r.status = 'published'`,
+    GAME_CATEGORY,
+  );
+  const total = row?.total ?? 0;
+  const assigned = row?.assigned ?? 0;
+  return { total, assigned, unassigned: total - assigned };
 }
