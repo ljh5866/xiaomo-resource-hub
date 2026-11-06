@@ -9,7 +9,15 @@
  *
  * 没有 Cookie 时只能列文件，取不到直链 —— 这是平台侧的硬限制，不是我们没写。
  */
+import { setDefaultResultOrder } from "node:dns";
 import { PanFail, type PanDirect, type PanFile, type PanShare } from "./types";
+
+/**
+ * 香港服务器上 Node 的 fetch 会优先连 IPv6，而到夸克 CDN 的 IPv6 不通 → ETIMEDOUT。
+ * curl 有 Happy Eyeballs 会自动回退 IPv4，所以命令行测着是好的，只有 Node 挂。
+ * 这里强制 IPv4 优先（等价于 node --dns-result-order=ipv4first）。
+ */
+setDefaultResultOrder("ipv4first");
 
 const API = "https://drive-pc.quark.cn";
 const REFERER = "https://pan.quark.cn/";

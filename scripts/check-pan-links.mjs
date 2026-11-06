@@ -9,6 +9,10 @@
  * 结果写回 resource_links.status / last_error / checked_at。
  */
 import { DatabaseSync } from "node:sqlite";
+import { setDefaultResultOrder } from "node:dns";
+
+// 香港机器到夸克 IPv6 不通，Node fetch 会 ETIMEDOUT；强制 IPv4 优先。
+setDefaultResultOrder("ipv4first");
 
 const args = process.argv.slice(2);
 const has = (f) => args.includes(f);
