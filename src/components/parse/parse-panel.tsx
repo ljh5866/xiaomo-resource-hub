@@ -159,13 +159,9 @@ export function ParsePanel({
         setError({ message: json.error ?? "取直链失败", code: json.code });
         return;
       }
-      const a = document.createElement("a");
-      a.href = json.direct.url;
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      // 同页导航：浏览器看到附件的响应头就直接下载，不新开标签、不会被弹窗拦截
+      // （之前用 a.target="_blank" 在异步回调里点击，Chrome/Edge 判定非用户手势，直接拦掉）
+      window.location.assign(json.direct.url);
     } catch {
       setError({ message: "网络异常，稍后再试" });
     } finally {
@@ -331,9 +327,9 @@ export function ParsePanel({
                       <a
                         href={href}
                         className="inline-flex min-h-8 items-center rounded-[6px] border border-line px-2 text-[11px] text-muted hover:border-accent hover:text-accent"
-                        title="经本站服务器中转，速度受服务器带宽限制"
+                        title="直链打不开时用：经本站服务器中转，同样受你的网盘账号限速"
                       >
-                        经服务器
+                        备用
                       </a>
                       <button
                         type="button"
@@ -380,10 +376,10 @@ export function ParsePanel({
 
           <div className="space-y-1 px-1 text-[11px] leading-relaxed text-dim">
             <p>
-              下载由本站服务器中转（{providerName} 直链绑定账号，浏览器直接打开会 412），
-              支持断点续传；服务器限速由部署方设定。
+              「下载」= 用你自己的账号取直链、浏览器直接下，速度取决于你的{providerName}账号（免费号通常
+              100–500 KB/s，会员才会快）。直链打不开（提示 412）时用「备用」，由本站服务器中转。
             </p>
-            <p>取链时会把文件转存一份到站点账号，下载完成后可忽略，不长期占用空间。</p>
+            <p>取链时会把文件转存一份到你自己的网盘，下载完可以在夸克里删掉。</p>
           </div>
         </>
       )}
