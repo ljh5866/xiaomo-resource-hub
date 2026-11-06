@@ -46,6 +46,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function hit(path, init = {}) {
   const qs = new URLSearchParams({ pr: "ucpro", fr: "pc", ...(init.query ?? {}) });
+  let lastErr = null;
   const res = await fetch(`${API}${path}?${qs}`, {
     method: init.body ? "POST" : "GET",
     headers: {
@@ -55,8 +56,14 @@ async function hit(path, init = {}) {
       ...(init.body ? { "content-type": "application/json;charset=UTF-8" } : {}),
     },
     body: init.body ? JSON.stringify(init.body) : undefined,
-  }).catch(() => null);
-  if (!res) return { code: -1, message: "网络失败" };
+  }).catch((e) => {
+    lastErr = e;
+    return null;
+  });
+  if (!res) {
+    const cause = lastErr?.cause?.code ?? lastErr?.cause?.message ?? "";
+    return { code: -1, message: `网络失败: ${lastErr?.message ?? "unknown"}${cause ? ` (${cause})` : ""}` };
+  }
   const json = await res.json().catch(() => null);
   if (!json) return { code: -2, message: `HTTP ${res.status}` };
   const code = json.code ?? json.status ?? 0;
