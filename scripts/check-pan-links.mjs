@@ -26,6 +26,7 @@ const PROVIDER = val("--provider", "quark");
 const LIMIT = Number(val("--limit", 0));
 const DRY = has("--dry");
 const DELAY = Number(val("--delay", 900));
+const EXPORT = val("--export", null);
 
 const API = "https://drive-pc.quark.cn";
 const UA =
@@ -89,6 +90,7 @@ function parseShare(url, code) {
   return { shareId: m[1], passcode };
 }
 
+const results = [];
 const ok = [];
 const invalid = [];
 const needCode = [];
@@ -138,6 +140,8 @@ for (const [i, row] of picked.entries()) {
 }
 
 function mark(id, status, err) {
+  results.push({ id, status, error: err });
+  if (DRY || EXPORT) return;
   db.prepare(
     `UPDATE resource_links SET status = ?, last_error = ?, checked_at = unixepoch() WHERE id = ?`,
   ).run(status, err, id);
@@ -148,4 +152,12 @@ console.log(
 );
 if (errors.length) {
   console.log("异常样本：", JSON.stringify(errors.slice(0, 5)));
+}
+
+if (EXPORT) {
+  const { writeFileSync, mkdirSync } = await import("node:fs");
+  const { dirname } = await import("node:path");
+  mkdirSync(dirname(EXPORT), { recursive: true });
+  writeFileSync(EXPORT, JSON.stringify({ provider: PROVIDER, checkedAt: Date.now(), results }, null, 2), "utf8");
+  console.log(`导出 ${results.length} 条 → ${EXPORT}`);
 }
