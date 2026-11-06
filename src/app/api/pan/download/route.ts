@@ -44,6 +44,7 @@ export async function GET(req: Request) {
   const fid = url.searchParams.get("fid") ?? "";
   const name = url.searchParams.get("name") ?? "download";
   const size = Number(url.searchParams.get("size") ?? 0);
+  const pdirFid = url.searchParams.get("pdir") ?? "0";
   const token = url.searchParams.get("token");
 
   if (!Number.isFinite(linkId) || linkId <= 0 || !fid) {
@@ -79,7 +80,7 @@ export async function GET(req: Request) {
 
   let direct;
   try {
-    direct = await getDirectLink(link.id, provider, parsed.shareId, parsed.passcode, file, cred.cookie);
+    direct = await getDirectLink(link.id, provider, parsed.shareId, parsed.passcode, file, cred.cookie, pdirFid);
   } catch (err) {
     const message = err instanceof Error ? err.message : "取直链失败";
     return new Response(message, { status: 502 });

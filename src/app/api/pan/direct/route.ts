@@ -24,7 +24,7 @@ export async function POST(req: Request) {
   const user = await getSessionUser();
   if (!user) return Response.json({ error: "请先登录" }, { status: 401 });
 
-  let payload: { linkId?: number; fid?: string; name?: string; size?: number; token?: string } = {};
+  let payload: { linkId?: number; fid?: string; name?: string; size?: number; token?: string; pdirFid?: string } = {};
   try {
     payload = (await req.json()) as typeof payload;
   } catch {
@@ -64,6 +64,7 @@ export async function POST(req: Request) {
     isDir: false,
     token: payload.token ?? null,
   };
+  const subDir = String(payload.pdirFid ?? "0");
 
   const cred = resolveCookie(user.id ?? null, provider);
   if (!cred) {
@@ -71,7 +72,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const direct = await getDirectLink(link.id, provider, parsed.shareId, parsed.passcode, file, cred.cookie);
+    const direct = await getDirectLink(link.id, provider, parsed.shareId, parsed.passcode, file, cred.cookie, subDir);
     return Response.json({ ok: true, direct, credentialSource: cred.source });
   } catch (err) {
     const message = err instanceof Error ? err.message : "取直链失败";

@@ -112,12 +112,18 @@ export function ParsePanel({
     void load(next.length ? next[next.length - 1].fid : "0");
   }
 
+  /** 当前目录的 fid：下载时要靠它在新 stoken 下重新取配套的文件 token */
+  function currentDir(): string {
+    return crumbs.length ? crumbs[crumbs.length - 1].fid : "0";
+  }
+
   function downloadHref(f: PanFile): string {
     const qs = new URLSearchParams({
       linkId: String(linkId),
       fid: f.fid,
       name: f.name,
       size: String(f.size),
+      pdir: currentDir(),
     });
     if (f.token) qs.set("token", f.token);
     return `/api/pan/download?${qs.toString()}`;
@@ -140,6 +146,7 @@ export function ParsePanel({
           name: f.name,
           size: f.size,
           token: f.token ?? null,
+          pdirFid: currentDir(),
         }),
       });
       const json = (await res.json()) as {
