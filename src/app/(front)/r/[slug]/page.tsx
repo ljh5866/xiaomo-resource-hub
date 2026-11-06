@@ -18,6 +18,7 @@ import {
   listResourcesByTag,
 } from "@/lib/queries";
 import { KINDS, LANGUAGES, LICENSE, platformOf } from "@/lib/constants";
+import { metaRows, parseResourceMeta } from "@/lib/resource-meta";
 import { formatDate, formatCount } from "@/lib/utils";
 
 export const revalidate = 3600;
@@ -83,12 +84,22 @@ export default async function ResourcePage({
   const loggedIn = Boolean(viewer);
   const platforms = JSON.parse(resource.platforms || "[]") as string[];
 
-  const primary = links.find((l) => l.isPrimary) ?? links[0];
-  const overallStatus: LinkStatus = links.some((l) => l.status === "ok")
+  /**
+   * 「本站直链 / 源站」不再单独占一行下载卡：
+   * 有正经网盘链接时它只是重复入口，只在没有其它链接时（GitHub 仓库等）兜底展示。
+   */
+  const showSourceLink = links.length <= 1;
+  const downloadLinks = links.filter((l) => showSourceLink || l.provider !== "self");
+
+  const meta = parseResourceMeta(resource.metaJson);
+  const infoRows = metaRows(meta, resource.title);
+
+  const primary = downloadLinks.find((l) => l.isPrimary) ?? downloadLinks[0];
+  const overallStatus: LinkStatus = downloadLinks.some((l) => l.status === "ok")
     ? "ok"
-    : links.length === 0
+    : downloadLinks.length === 0
       ? "unknown"
-      : links.every((l) => l.status === "invalid")
+      : downloadLinks.every((l) => l.status === "invalid")
         ? "invalid"
         : "unknown";
 
@@ -197,9 +208,39 @@ export default async function ResourcePage({
             <Field label="下载" value={`${formatCount(resource.downloadCount)} 次`} mono />
           </dl>
 
+          {/* 作品信息：来自源站的结构化字段（原名/会社/发售/评分…） */}
+          {infoRows.length > 0 && (
+            <section className="mt-10">
+              <h2 className="font-sans text-[20px] font-semibold text-ink">作品信息</h2>
+              <dl className="mt-4 grid grid-cols-1 gap-px border border-line bg-line sm:grid-cols-2">
+                {infoRows.map((row) => (
+                  <div key={row.label} className="bg-surface px-4 py-3">
+                    <dt className="text-[11px] tracking-[0.08em] text-dim">{row.label}</dt>
+                    <dd className="mt-1 text-[14px] leading-relaxed text-ink">
+                      {row.href ? (
+                        <a
+                          href={row.href}
+                          target="_blank"
+                          rel="noopener noreferrer nofollow"
+                          className="transition-colors hover:text-accent"
+                        >
+                          {row.value}
+                        </a>
+                      ) : (
+                        row.value
+                      )}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          )}
+
           {/* 说明正文 */}
           <section className="mt-10">
-            <h2 className="font-sans text-[20px] font-semibold text-ink">说明</h2>
+            <h2 className="font-sans text-[20px] font-semibold text-ink">
+              {meta?.source === "TouchGal" ? "游戏介绍" : "说明"}
+            </h2>
             <div className="mt-4 space-y-4 text-[15px] leading-[1.85] text-ink/90">
               {(resource.contentMd ?? "暂无说明。")
                 .split(/\n{2,}/)
@@ -250,12 +291,12 @@ export default async function ResourcePage({
             </div>
 
             <div className="space-y-3 p-4">
-              {links.length === 0 ? (
+              {downloadLinks.length === 0 ? (
                 <p className="py-6 text-center text-[13px] text-muted">
                   暂无可用链接，小编正在补。
                 </p>
               ) : (
-                links.map((l) => (
+                downloadLinks.map((l) => (
                   <LinkRow
                     key={l.id}
                     loggedIn={loggedIn}
@@ -297,7 +338,7 @@ export default async function ResourcePage({
           <div className="mt-2 px-1">
             <ReportDialog
               resourceId={resource.id}
-              links={links.map((l) => ({ id: l.id, provider: l.provider, label: l.label }))}
+              links={downloadLinks.map((l) => ({ id: l.id, provider: l.provider, label: l.label }))}
             />
           </div>
 

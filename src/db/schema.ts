@@ -52,6 +52,8 @@ export const resources = sqliteTable(
 
     sourceUrl: text("source_url"),
     sourceNote: text("source_note"),
+    /** 来源站点的结构化信息（JSON）：原名 / 会社 / 发售日 / 平台 / 语言 / 外部 ID 等 */
+    metaJson: text("meta_json"),
     verifiedAt: integer("verified_at", { mode: "timestamp" }),
 
     status: text("status").notNull().default("draft"),

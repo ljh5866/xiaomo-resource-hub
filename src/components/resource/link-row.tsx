@@ -79,14 +79,16 @@ export function LinkRow({
         <div className="flex min-w-0 items-center gap-2">
           <span aria-hidden className="size-2 shrink-0" style={{ backgroundColor: meta.tint }} />
           <span className="truncate text-[14px] font-medium text-ink">{meta.name}</span>
-          {link.label && (
-            <span className="shrink-0 border border-line px-1.5 text-[11px] leading-5 text-dim">
-              {link.label}
-            </span>
-          )}
         </div>
         <StatusDot status={status} size="sm" />
       </div>
+
+      {/* 网盘分享标题往往很长（带【KRKR】【Steam】等前缀），独占一行并截断，避免撑破 360px 侧栏 */}
+      {link.label && (
+        <p className="mt-1.5 line-clamp-2 break-all text-[11px] leading-[1.5] text-dim">
+          {link.label}
+        </p>
+      )}
 
       <p className="mt-2 flex items-center gap-2 font-mono text-[11px] text-dim">
         <span>{link.extractCode ? `提取码 ${link.extractCode}` : "无需提取码"}</span>

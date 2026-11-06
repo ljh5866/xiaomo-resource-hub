@@ -254,6 +254,8 @@ export type ResourceDetail = {
   subtitle: string | null;
   summary: string | null;
   contentMd: string | null;
+  /** 来源站点结构化信息（JSON 字符串），见 src/lib/resource-meta.ts */
+  metaJson: string | null;
   kind: string;
   platforms: string;
   version: string | null;
@@ -289,6 +291,7 @@ export async function getResourceBySlug(slug: string) {
     verifiedAt: number | null;
   }>(
     `SELECT id, code, slug, title, subtitle, summary, content_md AS contentMd,
+            meta_json AS metaJson,
             kind, platforms, version, size_label AS sizeLabel, language,
             license_label AS licenseLabel, download_count AS downloadCount,
             view_count AS viewCount, seo_title AS seoTitle, seo_desc AS seoDesc,
