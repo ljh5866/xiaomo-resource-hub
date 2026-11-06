@@ -1,17 +1,20 @@
-# ttals.com · 生产配置（阿里云香港 43.103.48.5）
+# ttals.com - production Caddy config (Alibaba Cloud HK, 43.103.48.5)
 #
-#   cp deploy/Caddyfile.ttals.com /etc/caddy/Caddyfile
-#   systemctl reload caddy
-#   journalctl -u caddy -f
+#   sudo cp deploy/Caddyfile.ttals.com /etc/caddy/Caddyfile
+#   sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+#   sudo systemctl reload caddy
 #
-# 两个站点块：
-#   ttals.com        前台
-#   admin.ttals.com  后台（转发到同一个 Next 进程，由 middleware 按 Host 分流）
+# Site blocks:
+#   ttals.com         frontend
+#   admin.ttals.com   admin console (same Next process, routed by middleware Host)
+#   www.ttals.com     301 -> apex
 #
-# 前置：
-#   1. DNS：ttals.com / www.ttals.com / admin.ttals.com 都 A 记录到 43.103.48.5
-#   2. 控制台放行 80/443
-#   3. .env 里设 ADMIN_HOST=admin.ttals.com 与 SITE_HOST=ttals.com
+# Prerequisites:
+#   1. DNS A records for ttals.com / www.ttals.com / admin.ttals.com -> 43.103.48.5
+#   2. Firewall allows 80 and 443
+#   3. .env sets ADMIN_HOST=admin.ttals.com and SITE_HOST=ttals.com
+#
+# NOTE: keep this file pure ASCII. Non-ASCII comments have broken caddy parse before.
 
 {
 	log default {
@@ -23,7 +26,7 @@
 	}
 }
 
-# ───────── 前台 ─────────
+# ---------- frontend ----------
 ttals.com {
 	encode zstd gzip
 
@@ -38,8 +41,8 @@ ttals.com {
 		-Server
 	}
 
-	# 静态文件直出：封面/头像不再经 Node 转发（每张省掉一次 Node 往返）
-	# /files/covers/x.webp → /var/www/xiaomo/data/uploads/covers/x.webp
+	# Covers / avatars are served straight from disk, no Node round trip.
+	# /files/covers/a.webp -> /var/www/xiaomo/data/uploads/covers/a.webp
 	handle_path /files/* {
 		root * /var/www/xiaomo/data/uploads
 		file_server
@@ -56,13 +59,15 @@ ttals.com {
 	respond @private 404
 }
 
-# ───────── 后台（子域名） ─────────
+# ---------- admin console (subdomain) ----------
 admin.ttals.com {
 	encode zstd gzip
 
-	# 后台页面一律不缓存，避免改了看到旧的
+	# Admin pages must never be cached; static files keep the immutable header.
+	@html not path /files/* /_next/static/*
+	header @html Cache-Control "no-store"
+
 	header {
-		Cache-Control "no-store"
 		X-Content-Type-Options nosniff
 		X-Frame-Options DENY
 		Referrer-Policy no-referrer
@@ -70,8 +75,6 @@ admin.ttals.com {
 		-Server
 	}
 
-	# 静态文件直出：封面/头像不再经 Node 转发（每张省掉一次 Node 往返）
-	# /files/covers/x.webp → /var/www/xiaomo/data/uploads/covers/x.webp
 	handle_path /files/* {
 		root * /var/www/xiaomo/data/uploads
 		file_server
@@ -85,7 +88,7 @@ admin.ttals.com {
 	}
 }
 
-# ───────── www 跳主域 ─────────
+# ---------- www -> apex ----------
 www.ttals.com {
 	redir https://ttals.com{uri} permanent
 }
