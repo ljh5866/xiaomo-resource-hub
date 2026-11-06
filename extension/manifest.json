@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "小莫资源网 · 网盘绑定助手",
+  "version": "1.0.0",
+  "description": "一键把夸克网盘登录态绑定到小莫资源网，解锁直链直出（走你自己的带宽）。",
+  "permissions": ["cookies"],
+  "host_permissions": ["*://*.quark.cn/*", "*://*.uc.cn/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://ttals.com/*",
+        "https://www.ttals.com/*",
+        "http://localhost:3100/*",
+        "http://127.0.0.1:3100/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "小莫资源网 · 网盘绑定助手",
+    "default_popup": "popup.html"
+  }
+}

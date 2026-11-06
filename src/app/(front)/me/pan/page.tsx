@@ -7,6 +7,7 @@ import { hasSiteCredential } from "@/lib/pan/quark";
 import { unbindQuarkAction } from "@/lib/pan/actions";
 import { PanBindForm } from "@/components/me/pan-bind-form";
 import { PanQrBind } from "@/components/me/pan-qr-bind";
+import { PanExtensionBind } from "@/components/me/pan-extension-bind";
 
 export const dynamic = "force-dynamic";
 
@@ -91,7 +92,15 @@ export default async function PanBindPage() {
                   而且所有文件都会转存到同一个账号里。绑定自己的更划算。
                 </p>
               )}
-              <PanBindForm />
+              <div className="space-y-4">
+                <PanExtensionBind />
+                <div className="flex items-center gap-2 text-[11px] text-dim">
+                  <span className="h-px flex-1 bg-line" />
+                  或者手动粘贴
+                  <span className="h-px flex-1 bg-line" />
+                </div>
+                <PanBindForm />
+              </div>
 
               <details className="mt-5 border-t border-line pt-3">
                 <summary className="cursor-pointer text-[12px] text-muted hover:text-ink">

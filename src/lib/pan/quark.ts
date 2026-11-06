@@ -46,20 +46,69 @@ export function quarkCdnHeaders(
   return h;
 }
 
-/** 用 account/info 验证一份 Cookie 是否有效，返回昵称 */
-export async function verifyCookie(cookie: string): Promise<{ nickname: string | null } | null> {
-  try {
-    const res = await fetch("https://pan.quark.cn/account/info?fr=pc&platform=pc", {
-      headers: { "user-agent": UA, cookie, referer: REFERER },
-      cache: "no-store",
-    });
-    const json = (await res.json()) as { data?: { nickname?: string } } | null;
-    const nickname = json?.data?.nickname;
-    if (!nickname) return null;
-    return { nickname };
-  } catch {
-    return null;
+/** 把多个 Set-Cookie 段落合并成一个 Cookie 头 */
+export function mergeCookies(a: string, b: string): string {
+  const jar = new Map<string, string>();
+  for (const part of `${a};${b}`.split(";")) {
+    const t = part.trim();
+    if (!t) continue;
+    const eq = t.indexOf("=");
+    if (eq <= 0) continue;
+    jar.set(t.slice(0, eq), t.slice(eq + 1));
   }
+  return [...jar.entries()].map(([k, v]) => `${k}=${v}`).join("; ");
+}
+
+/** 从响应头里抽 Set-Cookie 并拼成 Cookie 头 */
+export function collectSetCookies(headers: Headers): string {
+  const raw =
+    typeof (headers as { getSetCookie?: () => string[] }).getSetCookie === "function"
+      ? (headers as { getSetCookie: () => string[] }).getSetCookie()
+      : [headers.get("set-cookie") ?? ""];
+  const jar = new Map<string, string>();
+  for (const line of raw) {
+    for (const part of line.split(/,(?=[^;]+=)/)) {
+      const first = part.split(";")[0]?.trim();
+      if (!first) continue;
+      const eq = first.indexOf("=");
+      if (eq <= 0) continue;
+      jar.set(first.slice(0, eq), first.slice(eq + 1));
+    }
+  }
+  return [...jar.entries()].map(([k, v]) => `${k}=${v}`).join("; ");
+}
+
+/**
+ * 验证 Cookie 并顺手「激活」它：先请求一次首页，让夸克补发业务 cookie，
+ * 再请求 account/info 拿昵称。返回合并后的完整 cookie。
+ */
+export async function verifyCookie(
+  cookie: string,
+): Promise<{ cookie: string; nickname: string } | null> {
+  let jar = cookie;
+
+  const home = await fetch("https://pan.quark.cn/", {
+    headers: { "user-agent": UA, cookie: jar, referer: REFERER },
+    redirect: "manual",
+    cache: "no-store",
+  }).catch(() => null);
+  if (home) {
+    const extra = collectSetCookies(home.headers);
+    if (extra) jar = mergeCookies(jar, extra);
+  }
+
+  const res = await fetch("https://pan.quark.cn/account/info?fr=pc&platform=pc", {
+    headers: { "user-agent": UA, cookie: jar, referer: REFERER },
+    cache: "no-store",
+  }).catch(() => null);
+  if (!res) return null;
+
+  const extra2 = collectSetCookies(res.headers);
+  if (extra2) jar = mergeCookies(jar, extra2);
+
+  const json = (await res.json().catch(() => null)) as { data?: { nickname?: string } } | null;
+  const nickname = json?.data?.nickname;
+  return nickname ? { cookie: jar, nickname } : null;
 }
 
 async function call(

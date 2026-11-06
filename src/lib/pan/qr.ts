@@ -12,6 +12,8 @@
  * token 与 request_id 都只在服务端保存，前端只拿二维码字符串和一个 sessionId。
  */
 
+import { verifyCookie } from "./quark";
+
 const UOP = "https://uop.quark.cn";
 const CLIENT_ID = "532";
 const QR_HOST = "https://su.quark.cn/4_eMHBJ";
@@ -94,7 +96,7 @@ function collectCookies(headers: Headers): string {
   return [...jar.entries()].map(([k, v]) => `${k}=${v}`).join("; ");
 }
 
-function mergeCookie(a: string, b: string): string {
+function mergeCookieLocal(a: string, b: string): string {
   const jar = new Map<string, string>();
   for (const part of `${a};${b}`.split(";")) {
     const t = part.trim();
@@ -145,7 +147,7 @@ export async function exchangeTicket(
       .map((l) => l.split(";")[0]?.split("=")[0]?.trim())
       .filter(Boolean);
 
-    jar = mergeCookie(jar, collectCookies(res.headers));
+    jar = mergeCookieLocal(jar, collectCookies(res.headers));
     const loc = res.headers.get("location");
     diag?.push(`hop${hop} ${res.status} set=[${names.join(",") || "-"}] next=${loc ? loc.slice(0, 70) : "-"}`);
 
@@ -166,39 +168,6 @@ export async function exchangeTicket(
   return jar || null;
 }
 
-/**
- * 验证 Cookie 并顺手「激活」它：
- * 扫码后拿到的只有 ctoken / b-user-id 这批，网盘业务 cookie（__pus 等）要在
- * 访问一次首页后才补发，所以先请求 / 再请求 account/info，把新下发的合并进去。
- */
-async function verifyCookie(
-  cookie: string,
-): Promise<{ cookie: string; nickname: string } | null> {
-  let jar = cookie;
-
-  const home = await fetch("https://pan.quark.cn/", {
-    headers: { "user-agent": UA, cookie: jar, referer: "https://pan.quark.cn/" },
-    redirect: "manual",
-    cache: "no-store",
-  }).catch(() => null);
-  if (home) {
-    const extra = collectCookies(home.headers);
-    if (extra) jar = mergeCookie(jar, extra);
-  }
-
-  const res = await fetch("https://pan.quark.cn/account/info?fr=pc&platform=pc", {
-    headers: { "user-agent": UA, cookie: jar, referer: "https://pan.quark.cn/" },
-    cache: "no-store",
-  }).catch(() => null);
-  if (!res) return null;
-
-  const extra2 = collectCookies(res.headers);
-  if (extra2) jar = mergeCookie(jar, extra2);
-
-  const json = (await res.json().catch(() => null)) as { data?: { nickname?: string } } | null;
-  const nickname = json?.data?.nickname;
-  return nickname ? { cookie: jar, nickname } : null;
-}
 
 /** ③ 轮询扫码状态；成功后自动换 Cookie 并验证 */
 export async function pollQrLogin(sessionId: string, diag?: string[]): Promise<QrState> {
@@ -229,7 +198,7 @@ export async function pollQrLogin(sessionId: string, diag?: string[]): Promise<Q
    */
   const setNow = collectCookies(res.headers);
   if (setNow) {
-    s.jar = s.jar ? mergeCookie(s.jar, setNow) : setNow;
+    s.jar = s.jar ? mergeCookieLocal(s.jar, setNow) : setNow;
     diag?.push(`poll set-cookie=[${setNow.split(";").map((x) => x.trim().split("=")[0]).join(",")}]`);
   }
 
@@ -257,7 +226,7 @@ export async function pollQrLogin(sessionId: string, diag?: string[]): Promise<Q
     // ② 兜底：若 CAS 侧另有换票入口，再试一次多跳
     const exchanged = await exchangeTicket(ticket, diag);
     if (exchanged) {
-      const merged = s.jar ? mergeCookie(s.jar, exchanged) : exchanged;
+      const merged = s.jar ? mergeCookieLocal(s.jar, exchanged) : exchanged;
       const verified2 = await verifyCookie(merged);
       if (verified2) {
         sessions.delete(sessionId);
