@@ -134,6 +134,44 @@ export function ParsePanel({
    * 直链直出已验证不可行：夸克直链绑定账号 Cookie，用户浏览器打开会 412 / ERR_INVALID_RESPONSE。
    */
   /**
+   * 复制夸克真实直链：让用户粘进 IDM / 迅雷 / YunX 多线程下载。
+   *
+   * 为什么这条路快：直链绑的是用户自己的账号，他的下载器直接连夸克 CDN（多线程），
+   * 走的是他自己的网络。服务器中转要绕「香港机房 → 国内 CDN」那段被限速的链路，
+   * 实测只有几十 KB/s（mirrors.aliyun.com 同样只有 3.5 KB/s，同一类地域限速）。
+   */
+  async function copyDirectLink(f: PanFile) {
+    setPreparing(f.fid);
+    setError(null);
+    try {
+      const res = await fetch("/api/pan/direct", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          linkId,
+          fid: f.fid,
+          name: f.name,
+          size: f.size,
+          token: f.token ?? null,
+          pdirFid: currentDir(),
+        }),
+      });
+      const json = (await res.json()) as { ok?: boolean; direct?: { url: string }; error?: string; code?: string };
+      if (!res.ok || !json.ok || !json.direct?.url) {
+        setError({ message: json.error ?? "取直链失败", code: json.code });
+        return;
+      }
+      await navigator.clipboard.writeText(json.direct.url);
+      setCopied(f.fid);
+      window.setTimeout(() => setCopied(null), 2000);
+    } catch {
+      setError({ message: "网络异常，稍后再试" });
+    } finally {
+      setPreparing(null);
+    }
+  }
+
+  /**
    * 两段式下载：先取链（前端可见「取链中…」），拿到 ticket 再触发下载。
    *
    * 之前直接把 a[href] 指向 /api/pan/download：服务器要在流里跑完 token→detail→save→task
@@ -332,10 +370,11 @@ export function ParsePanel({
                       </button>
                       <button
                         type="button"
-                        onClick={() => void copy(new URL(href, window.location.origin).toString(), f.fid)}
-                        className="inline-flex min-h-8 w-8 cursor-pointer items-center justify-center rounded-[6px] border border-line text-muted hover:border-accent hover:text-accent"
-                        title="复制下载地址（需登录后访问）"
-                        aria-label="复制下载地址"
+                        onClick={() => void copyDirectLink(f)}
+                        disabled={preparing === f.fid}
+                        className="inline-flex min-h-8 w-8 cursor-pointer items-center justify-center rounded-[6px] border border-line text-muted hover:border-accent hover:text-accent disabled:opacity-60"
+                        title="复制夸克直链：粘进 IDM / 迅雷 / 云析 多线程下载，速度是服务器中转的几十倍（需浏览器已登录夸克）"
+                        aria-label="复制直链"
                       >
                         {copied === f.fid ? (
                           <Check className="size-3 text-ok" strokeWidth={2} aria-hidden />
@@ -352,8 +391,9 @@ export function ParsePanel({
 
           <div className="space-y-1 px-1 text-[11px] leading-relaxed text-dim">
             <p>
-              「下载」由本站服务器用你自己的账号取链并中转（夸克直链绑定账号，浏览器直接打开会
-              412 / 响应非法）。速度取决于你的{providerName}账号，本站会用多连接并发尽量拉满。
+              「下载」由本站服务器中转——受「香港机房 → 国内 CDN」地域限速，通常只有几十 KB/s。
+              想跑满速请点右边的<strong className="text-ink">复制直链</strong>图标，粘进 IDM / 迅雷 / 云析
+              这类多线程下载器（需先在浏览器登录 pan.quark.cn，否则直链会 412）。
             </p>
             <p>取链时会把文件转存一份到你自己的网盘，下载完可以在夸克里删掉。</p>
           </div>
