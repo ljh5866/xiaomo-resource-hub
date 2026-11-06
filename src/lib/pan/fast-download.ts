@@ -1,15 +1,16 @@
 /**
  * 多连接 Range 并发下载（服务端版）。
  *
- * 手法照抄 tidain/YunX-Desktop 的 ChunkDownloader / DownloadManager：
+ * 手法参考 tidain/YunX-Desktop 的 ChunkDownloader / DownloadManager：
  *   · 并行阈值 4 MB —— 太小的文件开并发反而更慢
- *   · 弹性分片：块大小 ≈ 单连接跑 TARGET_SECONDS(5s) 的量，夹在 256KB–4MB
- *   · Range 分片 + 有序合并：分片乱序拉回，但**按字节顺序**吐给客户端
- *   · 服务器忽略 Range（返回 200 整文件）时立刻回退单流，绝不为一个分片下整文件
+ *   · 分片 + 有序合并：分片乱序拉回，但按字节顺序吐给客户端
+ *   · 服务器忽略 Range（返回 200 整文件）时立刻回退单流
  *   · 分片失败重试 3 次（指数退避）
  *
- * 为什么这对网盘有效：夸克的限速是**单连接**限速，多开几条能叠加。
- * 单连接 115 KB/s × 6 ≈ 700 KB/s。
+ * 新增（2026-11-06）：**首片流式输出**。
+ * 之前是「整片下完才吐」，首片 4MB 在 115 KB/s 的链路上要 35 秒，
+ * 浏览器进度条会停在 0 B/s 假装卡死。现在首片边读边吐，1–2 秒就能看到速度；
+ * 其余分片照旧并发缓冲，首片结束后基本已经就绪，衔接是连续的。
  */
 
 export type RangeDownloadOptions = {
@@ -25,10 +26,7 @@ export type RangeDownloadOptions = {
   retries?: number;
   /** 低于这个大小直接单流 */
   parallelMinBytes?: number;
-  /**
-   * 已知文件大小（来自分享列表页）。给了就**跳过探测请求** ——
-   * 跨境链路上那次 probe 要 3–6 秒，纯浪费。
-   */
+  /** 已知文件大小（来自分享列表页），给了就跳过探测请求 */
   knownTotal?: number | null;
 };
 
@@ -58,7 +56,6 @@ export async function probeSize(
     cache: "no-store",
   }).catch(() => null);
   if (!res) return { total: null, acceptsRange: false, status: 0 };
-  // 丢掉这一字节
   if (res.body) await res.body.cancel().catch(() => {});
 
   const cr = res.headers.get("content-range");
@@ -72,15 +69,15 @@ export function planRanges(total: number, opts?: RangeDownloadOptions): RangePla
   if (total < o.parallelMinBytes) {
     return { total, chunkSize: total, chunkCount: 1, parallel: false };
   }
+  // 并发 <= 1 表示强制单流（排查用：PAN_RANGE_CONCURRENCY=1）
+  if (o.concurrency <= 1) {
+    return { total, chunkSize: total, chunkCount: 1, parallel: false };
+  }
   /**
    * 分片策略（比云析保守，因为这是跨境链路）：
    * 每片按 maxChunk（4MB）算，至少开 concurrency 片。
    * 片太小会让「每片一次握手（3–6 秒）」的开销盖过并发收益。
    */
-  // 并发 <= 1 表示强制单流（排查用：PAN_RANGE_CONCURRENCY=1）
-  if (o.concurrency <= 1) {
-    return { total, chunkSize: total, chunkCount: 1, parallel: false };
-  }
   const byTarget = Math.ceil(total / o.maxChunk);
   const chunkCount = Math.max(o.concurrency, byTarget, 2);
   const raw = Math.ceil(total / chunkCount);
@@ -107,10 +104,7 @@ async function fetchRange(
         headers: { ...headers, range: `bytes=${start}-${end}` },
         cache: "no-store",
       });
-      if (res.status !== 206) {
-        // 200 = 服务器忽略了 Range，交给上层回退单流
-        throw new Error(`range-ignored:${res.status}`);
-      }
+      if (res.status !== 206) throw new Error(`range-ignored:${res.status}`);
       const buf = new Uint8Array(await res.arrayBuffer());
       if (buf.byteLength !== end - start + 1) {
         throw new Error(`short-read:${buf.byteLength}!==${end - start + 1}`);
@@ -133,9 +127,14 @@ export type RangeStreamResult = {
   chunkCount: number;
 };
 
+async function singleStream(url: string, headers: Record<string, string>) {
+  const res = await fetch(url, { headers, cache: "no-store" });
+  if (!res.body) throw new Error(`网盘返回 ${res.status}，没有内容`);
+  return res.body as ReadableStream<Uint8Array>;
+}
+
 /**
- * 打开一条「多连接并发、按顺序输出」的字节流。
- * 调用方负责设置 Content-Disposition 等响应头。
+ * 打开一条「多连接并发、按顺序输出、首片流式」的字节流。
  */
 export async function openRangeStream(
   url: string,
@@ -144,7 +143,6 @@ export async function openRangeStream(
 ): Promise<RangeStreamResult> {
   const o = { ...DEFAULTS, ...opts };
 
-  // 已知大小就直接用，省掉一次跨境探测（3–6 秒）
   let total: number | null = o.knownTotal && o.knownTotal > 0 ? o.knownTotal : null;
   let acceptsRange = total !== null;
 
@@ -154,13 +152,10 @@ export async function openRangeStream(
     acceptsRange = probe.acceptsRange;
   }
 
-  // 不知道大小或服务器不支持 Range → 单流
   if (!acceptsRange || !total) {
-    const res = await fetch(url, { headers, cache: "no-store" });
-    if (!res.body) throw new Error(`网盘返回 ${res.status}，没有内容`);
     return {
-      stream: res.body as ReadableStream<Uint8Array>,
-      total: total,
+      stream: await singleStream(url, headers),
+      total,
       parallel: false,
       chunkSize: 0,
       chunkCount: 1,
@@ -169,10 +164,8 @@ export async function openRangeStream(
 
   const plan = planRanges(total, opts);
   if (!plan.parallel) {
-    const res = await fetch(url, { headers, cache: "no-store" });
-    if (!res.body) throw new Error(`网盘返回 ${res.status}，没有内容`);
     return {
-      stream: res.body as ReadableStream<Uint8Array>,
+      stream: await singleStream(url, headers),
       total,
       parallel: false,
       chunkSize: plan.chunkSize,
@@ -181,24 +174,32 @@ export async function openRangeStream(
   }
 
   const ranges: Array<[number, number]> = [];
-
-  /**
-   * 首片切小（256KB）：这一片下完之前浏览器一个字节都收不到，
-   * 4MB 的首片在慢链路上要 30 秒以上，用户会以为又卡住了。
-   * 首片之后按正常分片走，不影响总吞吐。
-   */
-  const HEAD = Math.min(256 * 1024, Math.ceil(total / 4));
-  let cursor = 0;
-  if (total > HEAD * 2) {
-    ranges.push([0, HEAD - 1]);
-    cursor = HEAD;
-  }
-  for (let start = cursor; start < total; start += plan.chunkSize) {
+  for (let start = 0; start < total; start += plan.chunkSize) {
     ranges.push([start, Math.min(start + plan.chunkSize - 1, total - 1)]);
   }
 
-  let nextToStart = 0;
-  let nextToEmit = 0;
+  /**
+   * 首片单独走「流式」：拿 reader 逐块读，边读边 enqueue。
+   * 这样第一批字节 1–2 秒就到，进度条能动，而不是等整片下完。
+   */
+  const [firstStart, firstEnd] = ranges[0];
+  let firstReader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+  let firstBytesLeft = firstEnd - firstStart + 1;
+  try {
+    const res = await fetch(url, {
+      headers: { ...headers, range: `bytes=${firstStart}-${firstEnd}` },
+      cache: "no-store",
+    });
+    if (res.status === 206 && res.body) {
+      firstReader = res.body.getReader();
+    }
+  } catch {
+    firstReader = null;
+  }
+
+  // 其余分片照常并发缓冲
+  let nextToStart = firstReader ? 1 : 0;
+  let nextToEmit = firstReader ? 1 : 0;
   const inflight = new Map<number, Promise<Uint8Array>>();
   let failed: Error | null = null;
 
@@ -207,11 +208,14 @@ export async function openRangeStream(
     inflight.set(i, fetchRange(url, headers, s, e, o.retries));
   };
 
-  // 预填窗口
-  while (nextToStart < ranges.length && nextToStart < o.concurrency) {
-    startChunk(nextToStart);
-    nextToStart += 1;
+  // 预填窗口（首片占一个位置）
+  const windowSize = Math.max(o.concurrency, 1);
+  let started = nextToStart;
+  while (started < ranges.length && inflight.size + (firstReader ? 1 : 0) < windowSize) {
+    startChunk(started);
+    started += 1;
   }
+  nextToStart = started;
 
   const stream = new ReadableStream<Uint8Array>({
     async pull(controller) {
@@ -219,23 +223,48 @@ export async function openRangeStream(
         controller.error(failed);
         return;
       }
+
+      // ① 首片流式阶段
+      if (firstReader) {
+        try {
+          const { done, value } = await firstReader.read();
+          if (!done && value) {
+            firstBytesLeft -= value.byteLength;
+            controller.enqueue(value);
+            return;
+          }
+        } catch {
+          /* 首片流式失败，退化到整片重取 */
+        }
+        firstReader = null;
+        if (firstBytesLeft > 0) {
+          // 首片没读全：退回整片重取一次
+          try {
+            const buf = await fetchRange(url, headers, firstStart, firstEnd, 2);
+            controller.enqueue(buf);
+          } catch (e) {
+            failed = e instanceof Error ? e : new Error(String(e));
+            controller.error(failed);
+            return;
+          }
+        }
+        return;
+      }
+
+      // ② 其余分片按序输出
       if (nextToEmit >= ranges.length) {
         controller.close();
         return;
       }
 
-      const pending = inflight.get(nextToEmit);
-      if (!pending) {
-        startChunk(nextToEmit);
-      }
+      if (!inflight.has(nextToEmit)) startChunk(nextToEmit);
 
       try {
         const buf = await inflight.get(nextToEmit)!;
         inflight.delete(nextToEmit);
         nextToEmit += 1;
 
-        // 补窗口
-        while (nextToStart < ranges.length && inflight.size < o.concurrency) {
+        while (nextToStart < ranges.length && inflight.size < windowSize) {
           startChunk(nextToStart);
           nextToStart += 1;
         }
@@ -250,6 +279,7 @@ export async function openRangeStream(
     },
     cancel() {
       inflight.clear();
+      firstReader?.cancel().catch(() => {});
     },
   });
 
