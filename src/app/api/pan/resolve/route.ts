@@ -1,7 +1,8 @@
 import { getSessionUser } from "@/lib/auth";
 import { get } from "@/db/client";
 import { isPanProvider, SHARE_PARSERS } from "@/lib/pan/types";
-import { listFiles, providerHasCredential, providerReady, resolveShare } from "@/lib/pan";
+import { listFiles, providerReady, resolveShare } from "@/lib/pan";
+import { resolveCookie } from "@/lib/pan/credentials";
 
 type LinkRow = {
   id: number;
@@ -64,10 +65,15 @@ export async function POST(req: Request) {
     return Response.json({ error: "链接格式无法识别（可能不是分享链接）" }, { status: 400 });
   }
 
+  // 用户自己的凭证优先，没有就回退站点账号；都没有时仍可匿名列目录（预览）
+  const cred = resolveCookie(user.id ?? null, provider);
+  const cookie = cred?.cookie ?? "";
+  const credentialSource = cred?.source ?? "none";
+
   try {
     // 进子目录：复用已缓存的 stoken，只换 pdir_fid
     if (pdirFid && pdirFid !== "0") {
-      const sub = await listFiles(link.id, provider, parsed.shareId, pdirFid);
+      const sub = await listFiles(link.id, provider, parsed.shareId, pdirFid, cookie);
       return Response.json({
         ok: true,
         share: {
@@ -79,16 +85,16 @@ export async function POST(req: Request) {
           total: sub.total,
           needsLogin: true,
         },
-        credential: providerHasCredential(provider),
+        credentialSource,
         resource: { slug: link.slug, title: link.title },
       });
     }
 
-    const share = await resolveShare(link.id, provider, parsed.shareId, parsed.passcode);
+    const share = await resolveShare(link.id, provider, parsed.shareId, parsed.passcode, cookie);
     return Response.json({
       ok: true,
       share,
-      credential: providerHasCredential(provider),
+      credentialSource,
       resource: { slug: link.slug, title: link.title },
     });
   } catch (err) {

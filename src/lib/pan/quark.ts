@@ -6,8 +6,10 @@
  *   sharepage/detail  stoken + pdir_fid → 文件列表       （匿名可调）
  *   sharepage/save    转存到自己的网盘                   （需要 Cookie）
  *   file/download     已转存 fid → 下载直链              （需要 Cookie）
+ *   CDN 直链          必须带同一个 Cookie，否则 412
  *
- * 没有 Cookie 时只能列文件，取不到直链 —— 这是平台侧的硬限制，不是我们没写。
+ * 所有需要登录态的入口都显式接收 cookie 字符串 —— 由调用方决定用「用户自己的」
+ * 还是「站点账号的」，本模块不碰 process.env。
  */
 import { setDefaultResultOrder } from "node:dns";
 import { PanFail, type PanDirect, type PanFile, type PanShare } from "./types";
@@ -15,7 +17,6 @@ import { PanFail, type PanDirect, type PanFile, type PanShare } from "./types";
 /**
  * 香港服务器上 Node 的 fetch 会优先连 IPv6，而到夸克 CDN 的 IPv6 不通 → ETIMEDOUT。
  * curl 有 Happy Eyeballs 会自动回退 IPv4，所以命令行测着是好的，只有 Node 挂。
- * 这里强制 IPv4 优先（等价于 node --dns-result-order=ipv4first）。
  */
 setDefaultResultOrder("ipv4first");
 
@@ -25,31 +26,46 @@ const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +
   "quark-cloud-drive/3.23.2 Chrome/112.0.5615.165 Electron/24.1.3.8 Safari/537.36";
 
-function cookie(): string {
+/** 站点自己的夸克账号（.env），作为用户未绑定时的回退 */
+export function siteCookie(): string {
   return (process.env.QUARK_COOKIE ?? "").trim();
 }
 
-export function hasCredential(): boolean {
-  return cookie().length > 0;
+export function hasSiteCredential(): boolean {
+  return siteCookie().length > 0;
 }
 
-/**
- * 访问夸克 CDN 直链时必须带的头。
- * 实测：不带 Cookie 一律 412（直链绑定账号），UA 用浏览器 UA 也一样 412。
- */
-export function quarkCdnHeaders(range?: string | null): Record<string, string> {
-  const h: Record<string, string> = {
-    "user-agent": UA,
-    cookie: cookie(),
-    referer: REFERER,
-  };
+/** 访问夸克 CDN 直链时必须带的头（实测：不带 Cookie 一律 412） */
+export function quarkCdnHeaders(
+  range: string | null | undefined,
+  cookie: string,
+): Record<string, string> {
+  const h: Record<string, string> = { "user-agent": UA, referer: REFERER };
+  if (cookie) h.cookie = cookie;
   if (range) h.range = range;
   return h;
+}
+
+/** 用 account/info 验证一份 Cookie 是否有效，返回昵称 */
+export async function verifyCookie(cookie: string): Promise<{ nickname: string | null } | null> {
+  try {
+    const res = await fetch("https://pan.quark.cn/account/info?fr=pc&platform=pc", {
+      headers: { "user-agent": UA, cookie, referer: REFERER },
+      cache: "no-store",
+    });
+    const json = (await res.json()) as { data?: { nickname?: string } } | null;
+    const nickname = json?.data?.nickname;
+    if (!nickname) return null;
+    return { nickname };
+  } catch {
+    return null;
+  }
 }
 
 async function call(
   path: string,
   init: { method?: string; body?: unknown; query?: Record<string, string> } = {},
+  cookie = "",
 ): Promise<Record<string, unknown>> {
   const qs = new URLSearchParams({ pr: "ucpro", fr: "pc", ...(init.query ?? {}) });
   const url = `${API}${path}?${qs.toString()}`;
@@ -59,8 +75,7 @@ async function call(
     origin: "https://pan.quark.cn",
     accept: "application/json, text/plain, */*",
   };
-  const c = cookie();
-  if (c) headers.cookie = c;
+  if (cookie) headers.cookie = cookie;
   if (init.body !== undefined) headers["content-type"] = "application/json;charset=UTF-8";
 
   const res = await fetch(url, {
@@ -82,7 +97,9 @@ async function call(
   if (code !== 0 && code !== 200) {
     const msg = json.message || `夸克返回 ${code}`;
     if (code === 41004) throw new PanFail("share-invalid", "分享已失效或被取消");
-    if (code === 41005 || /提取码/.test(msg)) throw new PanFail("need-passcode", msg);
+    if (code === 41005 || code === 41008 || /提取码/.test(msg)) {
+      throw new PanFail("need-passcode", msg);
+    }
     if (code === 41006) throw new PanFail("passcode-wrong", "提取码不对");
     if (code === 41010 || /频繁|限流/.test(msg)) throw new PanFail("rate-limited", msg);
     throw new PanFail("upstream", msg);
@@ -91,10 +108,12 @@ async function call(
 }
 
 /** pwd_id + passcode → stoken */
-export async function quarkToken(shareId: string, passcode: string): Promise<string> {
-  const data = await call("/1/clouddrive/share/sharepage/token", {
-    body: { pwd_id: shareId, passcode },
-  });
+export async function quarkToken(shareId: string, passcode: string, cookie = ""): Promise<string> {
+  const data = await call(
+    "/1/clouddrive/share/sharepage/token",
+    { body: { pwd_id: shareId, passcode } },
+    cookie,
+  );
   const stoken = String(data.stoken ?? "");
   if (!stoken) throw new PanFail("upstream", "没拿到 stoken（可能是分享已失效）");
   return stoken;
@@ -114,21 +133,26 @@ export async function quarkList(
   shareId: string,
   stoken: string,
   pdirFid = "0",
+  cookie = "",
 ): Promise<{ files: PanFile[]; total: number; title: string | null }> {
-  const data = await call("/1/clouddrive/share/sharepage/detail", {
-    query: {
-      pwd_id: shareId,
-      stoken,
-      pdir_fid: pdirFid,
-      force: "0",
-      _page: "1",
-      _size: "100",
-      _fetch_banner: "0",
-      _fetch_share: "0",
-      _fetch_total: "1",
-      _sort: "file_type:asc,updated_at:desc",
+  const data = await call(
+    "/1/clouddrive/share/sharepage/detail",
+    {
+      query: {
+        pwd_id: shareId,
+        stoken,
+        pdir_fid: pdirFid,
+        force: "0",
+        _page: "1",
+        _size: "100",
+        _fetch_banner: "0",
+        _fetch_share: "0",
+        _fetch_total: "1",
+        _sort: "file_type:asc,updated_at:desc",
+      },
     },
-  });
+    cookie,
+  );
 
   const list = (data.list ?? []) as DetailItem[];
   const metadata = (data.metadata ?? {}) as { _total?: number; title?: string };
@@ -151,18 +175,14 @@ export async function quarkList(
 }
 
 /** stoken + 文件 → 完整分享信息 */
-export async function quarkResolve(shareId: string, passcode: string): Promise<PanShare> {
-  const stoken = await quarkToken(shareId, passcode);
-  const { files, total, title } = await quarkList(shareId, stoken);
-  return {
-    provider: "quark",
-    shareId,
-    stoken,
-    title,
-    files,
-    total,
-    needsLogin: true,
-  };
+export async function quarkResolve(
+  shareId: string,
+  passcode: string,
+  cookie = "",
+): Promise<PanShare> {
+  const stoken = await quarkToken(shareId, passcode, cookie);
+  const { files, total, title } = await quarkList(shareId, stoken, "0", cookie);
+  return { provider: "quark", shareId, stoken, title, files, total, needsLogin: true };
 }
 
 /** 转存到自己的网盘（需要 Cookie），返回网盘内的 fid */
@@ -170,28 +190,35 @@ async function quarkSave(
   shareId: string,
   stoken: string,
   file: PanFile,
+  cookie: string,
 ): Promise<string> {
-  if (!hasCredential()) throw new PanFail("no-credential", "服务器还没配夸克登录凭证");
+  if (!cookie) throw new PanFail("no-credential", "缺少网盘登录凭证");
 
-  const task = await call("/1/clouddrive/share/sharepage/save", {
-    body: {
-      fid_list: [file.fid],
-      fid_token_list: [file.token ?? ""],
-      to_pdir_fid: "0",
-      pwd_id: shareId,
-      stoken,
-      pdir_fid: "0",
-      scene: "link",
+  const task = await call(
+    "/1/clouddrive/share/sharepage/save",
+    {
+      body: {
+        fid_list: [file.fid],
+        fid_token_list: [file.token ?? ""],
+        to_pdir_fid: "0",
+        pwd_id: shareId,
+        stoken,
+        pdir_fid: "0",
+        scene: "link",
+      },
     },
-  });
+    cookie,
+  );
   const taskId = String(task.task_id ?? "");
   if (!taskId) throw new PanFail("upstream", "转存任务没拿到 task_id");
 
   for (let i = 0; i < 12; i += 1) {
     await new Promise((r) => setTimeout(r, 700));
-    const t = await call("/1/clouddrive/task", {
-      query: { task_id: taskId, retry_index: String(i) },
-    });
+    const t = await call(
+      "/1/clouddrive/task",
+      { query: { task_id: taskId, retry_index: String(i) } },
+      cookie,
+    );
     if (Number(t.status ?? 0) === 2) {
       const saveAs = (t.save_as ?? {}) as { save_as_top_fids?: string[] };
       const fid = saveAs.save_as_top_fids?.[0];
@@ -207,13 +234,14 @@ export async function quarkDirect(
   shareId: string,
   stoken: string,
   file: PanFile,
+  cookie: string,
 ): Promise<PanDirect> {
-  const savedFid = await quarkSave(shareId, stoken, file);
-  const data = await call("/1/clouddrive/file/download", {
-    method: "POST",
-    query: { sys: "win32", ve: "3.23.2" },
-    body: { fids: [savedFid] },
-  });
+  const savedFid = await quarkSave(shareId, stoken, file, cookie);
+  const data = await call(
+    "/1/clouddrive/file/download",
+    { method: "POST", query: { sys: "win32", ve: "3.23.2" }, body: { fids: [savedFid] } },
+    cookie,
+  );
 
   const rows = (Array.isArray(data) ? data : (data.list ?? [])) as {
     download_url?: string;
@@ -221,7 +249,9 @@ export async function quarkDirect(
     size?: number;
   }[];
   const row = rows[0];
-  if (!row?.download_url) throw new PanFail("upstream", "夸克没返回下载地址（多半是账号被限速或风控）");
+  if (!row?.download_url) {
+    throw new PanFail("upstream", "夸克没返回下载地址（多半是账号被限速或风控）");
+  }
 
   return {
     url: row.download_url,

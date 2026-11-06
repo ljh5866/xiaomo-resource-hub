@@ -252,6 +252,26 @@ export const resourceTagsRelations = relations(resourceTags, ({ one }) => ({
   tag: one(tags, { fields: [resourceTags.tagId], references: [tags.id] }),
 }));
 
+/** 用户自己的网盘凭证（只存密文，见 src/lib/pan/credentials.ts） */
+export const userPanCredentials = sqliteTable(
+  "user_pan_credentials",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull(),
+    secretEnc: text("secret_enc").notNull(),
+    nickname: text("nickname"),
+    status: text("status").notNull().default("active"),
+    lastError: text("last_error"),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),
+  },
+  (t) => [uniqueIndex("idx_pancred_user_provider").on(t.userId, t.provider)],
+);
+
+export type UserPanCredential = typeof userPanCredentials.$inferSelect;
 export type Resource = typeof resources.$inferSelect;
 export type ResourceLink = typeof resourceLinks.$inferSelect;
 export type Category = typeof categories.$inferSelect;

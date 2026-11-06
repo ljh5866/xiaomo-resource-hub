@@ -4,7 +4,8 @@ import { get } from "@/db/client";
 import { getSessionUser } from "@/lib/auth";
 import { providerOf } from "@/lib/constants";
 import { isPanProvider } from "@/lib/pan/types";
-import { providerHasCredential, providerReady } from "@/lib/pan";
+import { providerReady } from "@/lib/pan";
+import { resolveCookie } from "@/lib/pan/credentials";
 import { ParsePanel } from "@/components/parse/parse-panel";
 
 export const dynamic = "force-dynamic";
@@ -58,6 +59,7 @@ export default async function ParsePage({ params }: { params: Promise<{ id: stri
   const provider = row.provider;
   const pan = isPanProvider(provider) ? provider : null;
   const meta = providerOf(provider);
+  const cred = pan ? resolveCookie(viewer.id ?? null, pan) : null;
 
   return (
     <div className="container-page py-10">
@@ -102,7 +104,8 @@ export default async function ParsePage({ params }: { params: Promise<{ id: stri
           providerName={meta.name}
           resourceTitle={row.title}
           shareUrl={row.url}
-          hasCredential={providerHasCredential(pan)}
+          hasCredential={Boolean(cred)}
+          credentialSource={cred?.source ?? "none"}
         />
       )}
     </div>

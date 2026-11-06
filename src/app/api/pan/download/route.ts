@@ -3,6 +3,7 @@ import { get } from "@/db/client";
 import { isPanProvider, SHARE_PARSERS, type PanFile } from "@/lib/pan/types";
 import { getDirectLink, providerReady } from "@/lib/pan";
 import { quarkCdnHeaders } from "@/lib/pan/quark";
+import { resolveCookie } from "@/lib/pan/credentials";
 
 /**
  * GET /api/pan/download?linkId=&fid=&name=&size=
@@ -73,9 +74,12 @@ export async function GET(req: Request) {
 
   const file: PanFile = { fid, name, size, isDir: false, token };
 
+  const cred = resolveCookie(user.id ?? null, provider);
+  if (!cred) return new Response("还没有绑定网盘账号", { status: 400 });
+
   let direct;
   try {
-    direct = await getDirectLink(link.id, provider, parsed.shareId, file);
+    direct = await getDirectLink(link.id, provider, parsed.shareId, file, cred.cookie);
   } catch (err) {
     const message = err instanceof Error ? err.message : "取直链失败";
     return new Response(message, { status: 502 });
@@ -83,7 +87,7 @@ export async function GET(req: Request) {
 
   const range = req.headers.get("range");
   const upstream = await fetch(direct.url, {
-    headers: quarkCdnHeaders(range),
+    headers: quarkCdnHeaders(range, cred.cookie),
     cache: "no-store",
   }).catch(() => null);
 

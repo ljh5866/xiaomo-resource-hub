@@ -3,6 +3,8 @@
  *
  * stoken 不能下发到前端 —— 拿到它等于拿到这次分享的读取权，
  * 前端只拿 fid 列表，取直链时由服务端用缓存里的 stoken 重新拼请求。
+ *
+ * 凭证由调用方传入（用户自己的 cookie 优先，回退站点账号），本模块不读环境变量。
  */
 import * as quark from "./quark";
 import type { PanDirect, PanFile, PanProvider, PanShare } from "./types";
@@ -31,22 +33,15 @@ export function providerReady(provider: PanProvider): boolean {
   return provider === "quark";
 }
 
-/** 该平台服务器是否有登录凭证（没有就只能列文件、取不到直链） */
-export function providerHasCredential(provider: PanProvider): boolean {
-  if (provider === "quark") return quark.hasCredential();
-  return false;
-}
-
 export async function resolveShare(
   linkId: number,
   provider: PanProvider,
   shareId: string,
   passcode: string,
+  cookie = "",
 ): Promise<PanShare> {
-  if (provider !== "quark") {
-    throw new Error(`${provider} 还没接，目前只支持夸克`);
-  }
-  const share = await quark.quarkResolve(shareId, passcode);
+  if (provider !== "quark") throw new Error(`${provider} 还没接，目前只支持夸克`);
+  const share = await quark.quarkResolve(shareId, passcode, cookie);
   if (share.stoken) put(linkId, shareId, share.stoken);
   return share;
 }
@@ -56,16 +51,16 @@ export async function getDirectLink(
   provider: PanProvider,
   shareId: string,
   file: PanFile,
+  cookie = "",
 ): Promise<PanDirect> {
   if (provider !== "quark") throw new Error(`${provider} 还没接`);
 
   let stoken = take(linkId, shareId);
   if (!stoken) {
-    // 缓存过期就用空提取码重取一次（夸克 token 接口对同一分享幂等）
-    stoken = await quark.quarkToken(shareId, "");
+    stoken = await quark.quarkToken(shareId, "", cookie);
     put(linkId, shareId, stoken);
   }
-  return quark.quarkDirect(shareId, stoken, file);
+  return quark.quarkDirect(shareId, stoken, file, cookie);
 }
 
 /** 浏览子目录：复用解析时缓存的 stoken，不再重新换 token */
@@ -74,14 +69,15 @@ export async function listFiles(
   provider: PanProvider,
   shareId: string,
   pdirFid: string,
+  cookie = "",
 ): Promise<{ files: PanFile[]; total: number }> {
   if (provider !== "quark") throw new Error(`${provider} 还没接`);
 
   let stoken = take(linkId, shareId);
   if (!stoken) {
-    stoken = await quark.quarkToken(shareId, "");
+    stoken = await quark.quarkToken(shareId, "", cookie);
     put(linkId, shareId, stoken);
   }
-  const { files, total } = await quark.quarkList(shareId, stoken, pdirFid);
+  const { files, total } = await quark.quarkList(shareId, stoken, pdirFid, cookie);
   return { files, total };
 }

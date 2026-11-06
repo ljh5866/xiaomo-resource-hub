@@ -53,6 +53,7 @@ export function ParsePanel({
   resourceTitle,
   shareUrl,
   hasCredential,
+  credentialSource,
 }: {
   linkId: number;
   provider: string;
@@ -60,11 +61,13 @@ export function ParsePanel({
   resourceTitle: string;
   shareUrl: string;
   hasCredential: boolean;
+  credentialSource: "user" | "site" | "none";
 }) {
   const [loading, setLoading] = useState(true);
   const [share, setShare] = useState<Share | null>(null);
   const [error, setError] = useState<{ message: string; code?: string } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [busyFid, setBusyFid] = useState<string | null>(null);
   const [crumbs, setCrumbs] = useState<{ fid: string; name: string }[]>([]);
 
   const load = useCallback(
@@ -117,6 +120,49 @@ export function ParsePanel({
     });
     if (f.token) qs.set("token", f.token);
     return `/api/pan/download?${qs.toString()}`;
+  }
+
+  /**
+   * 绑定自己账号的用户走「直链直出」：服务器只发一个 URL，流量走用户自己的带宽。
+   * 浏览器没登录同一个夸克账号时会 412，所以旁边保留「经服务器」这条稳的路。
+   */
+  async function directDownload(f: PanFile) {
+    setBusyFid(f.fid);
+    setError(null);
+    try {
+      const res = await fetch("/api/pan/direct", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          linkId,
+          fid: f.fid,
+          name: f.name,
+          size: f.size,
+          token: f.token ?? null,
+        }),
+      });
+      const json = (await res.json()) as {
+        ok?: boolean;
+        direct?: { url: string };
+        error?: string;
+        code?: string;
+      };
+      if (!res.ok || !json.ok || !json.direct) {
+        setError({ message: json.error ?? "取直链失败", code: json.code });
+        return;
+      }
+      const a = document.createElement("a");
+      a.href = json.direct.url;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch {
+      setError({ message: "网络异常，稍后再试" });
+    } finally {
+      setBusyFid(null);
+    }
   }
 
   async function copy(text: string, key: string) {
@@ -236,26 +282,46 @@ export function ParsePanel({
           <ul className="divide-y divide-line rounded-[8px] border border-line">
             {files.map((f) => {
               const href = downloadHref(f);
+              const ownAccount = credentialSource === "user";
               return (
                 <li key={f.fid} className="flex flex-wrap items-center gap-2 px-4 py-3">
                   <FileText className="size-4 shrink-0 text-dim" strokeWidth={1.5} aria-hidden />
                   <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{f.name}</span>
                   <span className="font-mono text-[11px] text-dim">{fmtBytes(f.size)}</span>
 
-                  {hasCredential ? (
+                  {!hasCredential ? (
+                    <a
+                      href="/me/pan"
+                      className="inline-flex min-h-8 items-center rounded-[6px] border border-line px-3 text-[12px] text-accent hover:border-accent"
+                    >
+                      去绑定网盘
+                    </a>
+                  ) : ownAccount ? (
                     <>
+                      <button
+                        type="button"
+                        onClick={() => void directDownload(f)}
+                        disabled={busyFid === f.fid}
+                        className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-[6px] bg-accent px-3 text-[12px] font-medium text-on-accent transition-colors hover:bg-accent-strong disabled:opacity-60"
+                        title="用你自己的夸克账号取链，浏览器直接下载，走你的带宽"
+                      >
+                        {busyFid === f.fid ? (
+                          <Loader2 className="size-3.5 animate-spin" strokeWidth={2} aria-hidden />
+                        ) : (
+                          <Download className="size-3.5" strokeWidth={1.5} aria-hidden />
+                        )}
+                        下载
+                      </button>
                       <a
                         href={href}
-                        className="inline-flex min-h-8 items-center gap-1.5 rounded-[6px] bg-accent px-3 text-[12px] font-medium text-on-accent transition-colors hover:bg-accent-strong"
+                        className="inline-flex min-h-8 items-center rounded-[6px] border border-line px-2 text-[11px] text-muted hover:border-accent hover:text-accent"
+                        title="经本站服务器中转，速度受服务器带宽限制"
                       >
-                        <Download className="size-3.5" strokeWidth={1.5} aria-hidden />
-                        下载
+                        经服务器
                       </a>
                       <button
                         type="button"
-                        onClick={() =>
-                          void copy(new URL(href, window.location.origin).toString(), f.fid)
-                        }
+                        onClick={() => void copy(new URL(href, window.location.origin).toString(), f.fid)}
                         className="inline-flex min-h-8 w-8 cursor-pointer items-center justify-center rounded-[6px] border border-line text-muted hover:border-accent hover:text-accent"
                         title="复制下载地址（需登录后访问）"
                         aria-label="复制下载地址"
@@ -268,7 +334,28 @@ export function ParsePanel({
                       </button>
                     </>
                   ) : (
-                    <span className="text-[11px] text-dim">需配置凭证</span>
+                    <>
+                      <a
+                        href={href}
+                        className="inline-flex min-h-8 items-center gap-1.5 rounded-[6px] bg-accent px-3 text-[12px] font-medium text-on-accent transition-colors hover:bg-accent-strong"
+                      >
+                        <Download className="size-3.5" strokeWidth={1.5} aria-hidden />
+                        下载
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => void copy(new URL(href, window.location.origin).toString(), f.fid)}
+                        className="inline-flex min-h-8 w-8 cursor-pointer items-center justify-center rounded-[6px] border border-line text-muted hover:border-accent hover:text-accent"
+                        title="复制下载地址（需登录后访问）"
+                        aria-label="复制下载地址"
+                      >
+                        {copied === f.fid ? (
+                          <Check className="size-3 text-ok" strokeWidth={2} aria-hidden />
+                        ) : (
+                          <Copy className="size-3" strokeWidth={1.5} aria-hidden />
+                        )}
+                      </button>
+                    </>
                   )}
                 </li>
               );

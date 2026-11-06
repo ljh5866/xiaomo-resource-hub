@@ -2,6 +2,7 @@ import { getSessionUser } from "@/lib/auth";
 import { get } from "@/db/client";
 import { isPanProvider, SHARE_PARSERS, type PanFile } from "@/lib/pan/types";
 import { getDirectLink, providerReady } from "@/lib/pan";
+import { resolveCookie } from "@/lib/pan/credentials";
 
 type LinkRow = {
   id: number;
@@ -64,9 +65,14 @@ export async function POST(req: Request) {
     token: payload.token ?? null,
   };
 
+  const cred = resolveCookie(user.id ?? null, provider);
+  if (!cred) {
+    return Response.json({ error: "还没有绑定网盘账号，先去「我的 → 网盘绑定」", code: "no-credential" }, { status: 400 });
+  }
+
   try {
-    const direct = await getDirectLink(link.id, provider, parsed.shareId, file);
-    return Response.json({ ok: true, direct });
+    const direct = await getDirectLink(link.id, provider, parsed.shareId, file, cred.cookie);
+    return Response.json({ ok: true, direct, credentialSource: cred.source });
   } catch (err) {
     const message = err instanceof Error ? err.message : "取直链失败";
     const code = (err as { code?: string }).code ?? "upstream";
