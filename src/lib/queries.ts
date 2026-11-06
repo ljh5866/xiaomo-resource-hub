@@ -93,6 +93,7 @@ export async function listResources(
     gameSlug?: string;
     genreSlug?: string;
     ghSlug?: string;
+    softSlug?: string;
     hot?: boolean;
     featured?: boolean;
     excludeFeatured?: boolean;
@@ -100,7 +101,7 @@ export async function listResources(
     offset?: number;
   } = {},
 ): Promise<ResourceCardData[]> {
-  const { categorySlug, gameSlug, genreSlug, ghSlug, hot, featured, excludeFeatured, limit = 12, offset = 0 } = opts;
+  const { categorySlug, gameSlug, genreSlug, ghSlug, softSlug, hot, featured, excludeFeatured, limit = 12, offset = 0 } = opts;
   const where: string[] = ["r.status = 'published'"];
   const params: (string | number)[] = [];
 
@@ -119,6 +120,10 @@ export async function listResources(
   if (ghSlug && inHome("opensource")) {
     where.push("EXISTS (SELECT 1 FROM resource_tags rt JOIN tags t ON t.id = rt.tag_id WHERE rt.resource_id = r.id AND t.slug = ? AND t.kind = 'gh')");
     params.push(ghSlug);
+  }
+  if (softSlug && inHome("software")) {
+    where.push("EXISTS (SELECT 1 FROM resource_tags rt JOIN tags t ON t.id = rt.tag_id WHERE rt.resource_id = r.id AND t.slug = ? AND t.kind = 'soft')");
+    params.push(softSlug);
   }
   if (hot) where.push("r.updated_at >= unixepoch() - 7 * 86400");
 
@@ -147,10 +152,11 @@ export async function countResources(
     gameSlug?: string;
     genreSlug?: string;
     ghSlug?: string;
+    softSlug?: string;
     hot?: boolean;
   } = {},
 ): Promise<number> {
-  const { categorySlug, gameSlug, genreSlug, ghSlug, hot } = opts;
+  const { categorySlug, gameSlug, genreSlug, ghSlug, softSlug, hot } = opts;
   const where = ["r.status = 'published'"];
   const params: string[] = [];
   const inHome = (home: string) => !categorySlug || categorySlug === home;
@@ -170,6 +176,10 @@ export async function countResources(
   if (ghSlug && inHome("opensource")) {
     where.push("EXISTS (SELECT 1 FROM resource_tags rt JOIN tags t ON t.id = rt.tag_id WHERE rt.resource_id = r.id AND t.slug = ? AND t.kind = 'gh')");
     params.push(ghSlug);
+  }
+  if (softSlug && inHome("software")) {
+    where.push("EXISTS (SELECT 1 FROM resource_tags rt JOIN tags t ON t.id = rt.tag_id WHERE rt.resource_id = r.id AND t.slug = ? AND t.kind = 'soft')");
+    params.push(softSlug);
   }
   if (hot) where.push("r.updated_at >= unixepoch() - 7 * 86400");
 

@@ -25,11 +25,12 @@ const PAGE_SIZE = 24;
 /** 分类 → 用哪一类标签做筛选条 */
 const FILTER_KIND: Record<
   string,
-  { kind: "game" | "genre" | "gh"; label: string; param: "game" | "genre" | "gh" }
+  { kind: "game" | "genre" | "gh" | "soft"; label: string; param: "game" | "genre" | "gh" | "soft" }
 > = {
   mods: { kind: "game", label: "游戏", param: "game" },
   games: { kind: "genre", label: "类型", param: "genre" },
   opensource: { kind: "gh", label: "端", param: "gh" },
+  software: { kind: "soft", label: "分类", param: "soft" },
 };
 
 export async function generateMetadata({
@@ -75,10 +76,10 @@ export default async function CategoryPage({
   searchParams,
 }: {
   params: Promise<{ category: string }>;
-  searchParams: Promise<{ page?: string; game?: string; genre?: string; gh?: string; hot?: string }>;
+  searchParams: Promise<{ page?: string; game?: string; genre?: string; gh?: string; soft?: string; hot?: string }>;
 }) {
   const { category } = await params;
-  const { page: pageRaw, game, genre, gh, hot: hotRaw } = await searchParams;
+  const { page: pageRaw, game, genre, gh, soft, hot: hotRaw } = await searchParams;
   const hot = hotRaw === "1";
 
   const categories = await listCategories();
@@ -86,13 +87,15 @@ export default async function CategoryPage({
   if (!current) notFound();
 
   const filter = FILTER_KIND[category];
-  const activeSlug = filter?.param === "genre" ? genre : filter?.param === "gh" ? gh : game;
+  const activeSlug =
+    filter?.param === "genre" ? genre : filter?.param === "gh" ? gh : filter?.param === "soft" ? soft : game;
 
   const total = await countResources({
     categorySlug: category,
     gameSlug: filter?.param === "game" ? game : undefined,
     genreSlug: filter?.param === "genre" ? genre : undefined,
     ghSlug: gh,
+    softSlug: filter?.param === "soft" ? soft : undefined,
     hot,
   });
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -104,6 +107,7 @@ export default async function CategoryPage({
       gameSlug: filter?.param === "game" ? game : undefined,
       genreSlug: filter?.param === "genre" ? genre : undefined,
       ghSlug: gh,
+      softSlug: filter?.param === "soft" ? soft : undefined,
       hot,
       limit: PAGE_SIZE,
       offset: (page - 1) * PAGE_SIZE,

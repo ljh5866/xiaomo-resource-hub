@@ -4,6 +4,7 @@
  *   game  → 游戏 MODS（"我的世界 / 只狼"这类所属游戏）
  *   genre → 热门游戏（Galgame / 恐怖 / 竞技 …）
  *   gh    → GitHub 开源项目（安卓端 / iOS 端 / 桌面端 / 工具库）
+ *   soft  → 软件工具（系统工具 / 网络工具 / 安全防护 …）
  *
  * platform / other 是通用标签，不限制。
  *
@@ -15,6 +16,7 @@ export const TAG_KIND_HOME: Record<string, string> = {
   game: "mods",
   genre: "games",
   gh: "opensource",
+  soft: "software",
 };
 
 /** 该标签类型能否挂在这个分类的资源上 */
@@ -32,9 +34,10 @@ export function homeTagKind(categorySlug: string): string | null {
   return null;
 }
 
-/** 分类页要展示的筛选条类型：mods 看 game，games 看 genre，opensource 看 gh */
+/** 分类页要展示的筛选条类型：mods 看 game，games 看 genre，opensource 看 gh，software 看 soft */
 export const FILTER_KIND_BY_CATEGORY: Record<string, string> = {
   mods: "game",
   games: "genre",
   opensource: "gh",
+  software: "soft",
 };

@@ -16,7 +16,7 @@ export function FilterChips({
 }: {
   categorySlug: string;
   label: string;
-  param: "game" | "genre" | "gh";
+  param: "game" | "genre" | "gh" | "soft";
   items: { slug: string; name: string; count: number }[];
   active?: string;
 }) {

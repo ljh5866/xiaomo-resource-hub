@@ -9,6 +9,7 @@ export type ProviderKey =
   | "uc"
   | "115"
   | "lanzou"
+  | "direct"
   | "self";
 
 export const PROVIDERS: Record<
@@ -23,6 +24,7 @@ export const PROVIDERS: Record<
   uc: { name: "UC 网盘", short: "UC", tint: "#c08a5a" },
   "115": { name: "115 网盘", short: "115", tint: "#8d7fb8" },
   lanzou: { name: "蓝奏云", short: "蓝奏", tint: "#7d94c9" },
+  direct: { name: "直接下载", short: "直下", tint: "#5b9e74", note: "第三方 CDN 直链，点击即下" },
   self: { name: "本站直链", short: "直链", tint: "#c8a44e" },
 };
 
