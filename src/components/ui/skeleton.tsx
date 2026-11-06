@@ -5,8 +5,8 @@ export function Skeleton({ className }: { className?: string }) {
   return (
     <div
       aria-hidden
-      className={cn("animate-pulse bg-surface-2", className)}
-      style={{ animationDuration: "1.6s" }}
+      className={cn("animate-pulse bg-line/70", className)}
+      style={{ animationDuration: "1.4s" }}
     />
   );
 }

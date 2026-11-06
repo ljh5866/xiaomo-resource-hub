@@ -38,6 +38,13 @@ ttals.com {
 		-Server
 	}
 
+	# 静态文件直出：封面/头像不再经 Node 转发（每张省掉一次 Node 往返）
+	# /files/covers/x.webp → /var/www/xiaomo/data/uploads/covers/x.webp
+	handle_path /files/* {
+		root * /var/www/xiaomo/data/uploads
+		file_server
+	}
+
 	reverse_proxy 127.0.0.1:3100 {
 		header_up X-Real-IP {remote_host}
 		health_uri /api/health
@@ -61,6 +68,13 @@ admin.ttals.com {
 		Referrer-Policy no-referrer
 		X-Robots-Tag "noindex, nofollow"
 		-Server
+	}
+
+	# 静态文件直出：封面/头像不再经 Node 转发（每张省掉一次 Node 往返）
+	# /files/covers/x.webp → /var/www/xiaomo/data/uploads/covers/x.webp
+	handle_path /files/* {
+		root * /var/www/xiaomo/data/uploads
+		file_server
 	}
 
 	reverse_proxy 127.0.0.1:3100 {

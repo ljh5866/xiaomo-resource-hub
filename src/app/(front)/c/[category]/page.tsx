@@ -213,8 +213,8 @@ export default async function CategoryPage({
             </div>
           ) : (
             <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-              {items.map((r) => (
-                <ResourceCard key={r.code} data={r} />
+              {items.map((r, i) => (
+                <ResourceCard key={r.code} data={r} priority={i < 4} />
               ))}
             </div>
           )}

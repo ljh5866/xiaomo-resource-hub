@@ -151,6 +151,32 @@
     color: var(--dim);
   }
 
+  /* 交互反馈：按下立刻有变化 —— 否则动态页要等服务端 1s+，用户以为「点了没反应」 */
+  a,
+  button,
+  summary,
+  [role="button"] {
+    transition-property: background-color, border-color, color, opacity, transform, box-shadow;
+    transition-duration: 130ms;
+    transition-timing-function: ease;
+  }
+
+  a:active,
+  summary:active,
+  [role="button"]:active {
+    opacity: 0.72;
+  }
+
+  button:not(:disabled):active {
+    opacity: 0.86;
+    transform: translateY(1px) scale(0.99);
+  }
+
+  /* 卡片整体可点：按下时边框变色，比单纯变色更明显 */
+  a:active > * {
+    border-color: var(--line-strong);
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -265,5 +291,28 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* 顶部加载进度条：路由切换时立刻可见，不等服务端返回 */
+@keyframes loading-bar {
+  0% {
+    transform: translateX(-100%);
+  }
+  60% {
+    transform: translateX(120%);
+  }
+  100% {
+    transform: translateX(330%);
+  }
+}
+
+/* 首屏图片淡入，避免「一张张跳出来」的观感 */
+@keyframes img-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }

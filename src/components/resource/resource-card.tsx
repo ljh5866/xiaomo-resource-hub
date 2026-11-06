@@ -30,12 +30,14 @@ function CoverFrame({
   coverUrl,
   coverBlur,
   title,
+  priority = false,
 }: {
   code: string;
   featured?: boolean;
   coverUrl?: string | null;
   coverBlur?: string | null;
   title: string;
+  priority?: boolean;
 }) {
   if (coverUrl) {
     return (
@@ -44,14 +46,16 @@ function CoverFrame({
         <img
           src={coverUrl}
           alt={title}
-          loading="lazy"
+          loading={priority ? "eager" : "lazy"}
+          fetchPriority={priority ? "high" : "auto"}
           decoding="async"
           className="size-full object-cover"
-          style={
-            coverBlur
+          style={{
+            animation: "img-in 240ms ease-out both",
+            ...(coverBlur
               ? { backgroundImage: `url(${coverBlur})`, backgroundSize: "cover", backgroundPosition: "center" }
-              : undefined
-          }
+              : {}),
+          }}
         />
         {featured && (
           <span className="absolute right-0 top-0 border-b border-l border-accent/40 bg-canvas px-2 py-1 font-mono text-[10px] tracking-[0.14em] text-accent">
@@ -116,6 +120,7 @@ export function ResourceCard({
         coverUrl={data.coverUrl}
         coverBlur={data.coverBlur}
         title={data.title}
+        priority={priority}
       />
 
       <div className="flex flex-1 flex-col gap-2 p-5">

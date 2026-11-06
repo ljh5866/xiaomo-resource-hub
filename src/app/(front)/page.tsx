@@ -158,8 +158,8 @@ export default async function HomePage() {
           />
         ) : (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {latest.map((r) => (
-              <ResourceCard key={r.code} data={r} />
+            {latest.map((r, i) => (
+              <ResourceCard key={r.code} data={r} priority={i < 3} />
             ))}
           </div>
         )}
