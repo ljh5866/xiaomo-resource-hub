@@ -111,7 +111,7 @@ export async function GET(req: Request) {
         }
 
         const result = await openRangeStream(cdnUrl, cdnHeaders, {
-          concurrency: Number(process.env.PAN_RANGE_CONCURRENCY ?? 6),
+          concurrency: Number(process.env.PAN_RANGE_CONCURRENCY ?? 24),
           retries: 3,
           // 列表里已经有大小，省掉一次跨境探测
           knownTotal: size > 0 ? size : null,

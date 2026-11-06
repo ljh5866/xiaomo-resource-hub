@@ -31,9 +31,16 @@ export type RangeDownloadOptions = {
 };
 
 const DEFAULTS: Required<Omit<RangeDownloadOptions, "knownTotal">> = {
-  concurrency: 6,
+  /**
+   * 并发数：YunX 桌面/安卓版默认给网盘 10 条、上限可调 512，
+   * 实测 512 线程能跑到 11.7 MB/s —— 说明夸克限的是**单连接**速度。
+   * 服务端受内存（每片缓存在内存里）和出口带宽双重约束：
+   *   24 并发 × 2MB 片 = 48MB 内存，理论吞吐 24 × 115KB/s ≈ 2.7 MB/s，
+   * 刚好压在轻量服务器 3–4 MB/s 带宽上限附近。
+   */
+  concurrency: 24,
   minChunk: 256 * 1024,
-  maxChunk: 4 * 1024 * 1024,
+  maxChunk: 2 * 1024 * 1024,
   targetSeconds: 5,
   retries: 3,
   parallelMinBytes: 4 * 1024 * 1024,
