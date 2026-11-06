@@ -22,6 +22,14 @@ const SRC = "data/import/3dmsoft.json";
 const COVER_SRC = "data/import/3dmsoft/covers";
 const COVER_DST = "data/uploads/covers";
 
+if (!existsSync(SRC)) {
+  console.error(`找不到 ${SRC}
+请把 3dmsoft.zip 解压到 data/import/，正确结构是：
+  data/import/3dmsoft.json
+  data/import/3dmsoft/covers/3dm-*.jpg`);
+  process.exit(1);
+}
+
 const rows = JSON.parse(readFileSync(SRC, "utf8"));
 const db = new DatabaseSync(DB);
 db.exec("PRAGMA foreign_keys = ON");
