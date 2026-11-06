@@ -181,7 +181,19 @@ export async function openRangeStream(
   }
 
   const ranges: Array<[number, number]> = [];
-  for (let start = 0; start < total; start += plan.chunkSize) {
+
+  /**
+   * 首片切小（256KB）：这一片下完之前浏览器一个字节都收不到，
+   * 4MB 的首片在慢链路上要 30 秒以上，用户会以为又卡住了。
+   * 首片之后按正常分片走，不影响总吞吐。
+   */
+  const HEAD = Math.min(256 * 1024, Math.ceil(total / 4));
+  let cursor = 0;
+  if (total > HEAD * 2) {
+    ranges.push([0, HEAD - 1]);
+    cursor = HEAD;
+  }
+  for (let start = cursor; start < total; start += plan.chunkSize) {
     ranges.push([start, Math.min(start + plan.chunkSize - 1, total - 1)]);
   }
 
