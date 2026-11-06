@@ -1,14 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { Check, Copy, ExternalLink, TriangleAlert } from "lucide-react";
+import { ArrowRight, Check, Copy, ExternalLink, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import { StatusDot, type LinkStatus } from "@/components/ui/status-dot";
 import { providerOf } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
-export type LinkRowData = {
-  id: number;
+export type LinkRowData = {  id: number;
   provider: string;
   url: string;
   extractCode: string | null;
@@ -16,6 +15,12 @@ export type LinkRowData = {
   status: string;
   clickCount: number;
 };
+
+/**
+ * 能在站内解析的网盘（其余来源不显示「解析」入口）
+ * —— 与 src/lib/pan/types.ts 的 PAN_PROVIDERS 保持一致
+ */
+const PAN_RESOLVABLE = ["quark", "baidu", "uc", "xunlei"];
 
 /**
  * 下载链接行。侧栏只有 360px，所以固定为上下结构：
@@ -161,6 +166,17 @@ export function LinkRow({
         <p className="mt-2 select-all break-all rounded-[6px] bg-surface-2 px-2 py-1 font-mono text-[11px] text-muted">
           {copyText}
         </p>
+      )}
+
+      {/* 站内解析：只对支持的四家网盘出现，点进去解析这一条（需登录） */}
+      {PAN_RESOLVABLE.includes(link.provider) && (
+        <Link
+          href={`/parse/${link.id}`}
+          className="mt-2 inline-flex min-h-8 w-full items-center justify-center gap-1 rounded-[6px] text-[12px] text-accent transition-colors hover:bg-surface-2"
+        >
+          站内解析
+          <ArrowRight className="size-3" strokeWidth={1.5} aria-hidden />
+        </Link>
       )}
     </div>
   );
