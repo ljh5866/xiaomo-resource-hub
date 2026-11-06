@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Bookmark, Inbox, Settings } from "lucide-react";
+import { HardDrive, Bookmark, Inbox, Settings } from "lucide-react";
 import { Avatar } from "@/components/user/avatar";
 import { ResourceCard } from "@/components/resource/resource-card";
 import { ButtonLink } from "@/components/ui/button";
@@ -71,7 +71,14 @@ export default async function MePage({
           </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/me/pan"
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-[10px] border border-line bg-surface px-3 text-[13px] text-ink transition-colors hover:border-line-strong"
+          >
+            <HardDrive className="size-3.5" strokeWidth={1.5} aria-hidden />
+            网盘绑定
+          </Link>
           <Link
             href="/me/settings"
             className="inline-flex min-h-9 items-center gap-1.5 rounded-[10px] border border-line bg-surface px-3 text-[13px] text-ink transition-colors hover:border-line-strong"
