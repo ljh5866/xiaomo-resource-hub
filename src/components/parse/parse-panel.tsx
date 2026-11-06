@@ -201,7 +201,7 @@ export function ParsePanel({
       {loading && (
         <div className="flex items-center gap-2 px-1 py-10 text-[13px] text-muted">
           <Loader2 className="size-4 animate-spin" strokeWidth={2} aria-hidden />
-          正在向 {providerName} 请求文件列表…
+          正在向 {providerName} 请求文件列表…（跨境链路较慢，通常 5–15 秒）
         </div>
       )}
 

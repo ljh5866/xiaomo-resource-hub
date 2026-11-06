@@ -13,6 +13,7 @@
  */
 
 import { verifyCookie } from "./quark";
+import { panRequest } from "./http";
 
 const UOP = "https://uop.quark.cn";
 const CLIENT_ID = "532";
@@ -47,16 +48,18 @@ export async function startQrLogin(): Promise<{
   sweep();
   const requestId = uuid();
   const url = `${UOP}/cas/ajax/getTokenForQrcodeLogin?client_id=${CLIENT_ID}&v=1.2&request_id=${requestId}`;
-  const res = await fetch(url, {
+  const res = await panRequest(url, {
     headers: { "user-agent": UA, referer: "https://pan.quark.cn/" },
-    cache: "no-store",
   }).catch(() => null);
-  if (!res) return null;
+  if (!res || res.status === 0) return null;
 
-  const json = (await res.json().catch(() => null)) as {
-    status?: number;
-    data?: { members?: { token?: string } };
-  } | null;
+  type TokenResp = { status?: number; data?: { members?: { token?: string } } };
+  let json: TokenResp | null = null;
+  try {
+    json = JSON.parse(res.text) as TokenResp;
+  } catch {
+    json = null;
+  }
   const token = json?.data?.members?.token;
   if (!token) return null;
 

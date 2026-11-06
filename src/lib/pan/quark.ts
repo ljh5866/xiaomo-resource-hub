@@ -13,6 +13,7 @@
  */
 import { setDefaultResultOrder } from "node:dns";
 import { PanFail, type PanDirect, type PanFile, type PanShare } from "./types";
+import { panRequest } from "./http";
 
 /**
  * 香港服务器上 Node 的 fetch 会优先连 IPv6，而到夸克 CDN 的 IPv6 不通 → ETIMEDOUT。
@@ -87,26 +88,29 @@ export async function verifyCookie(
 ): Promise<{ cookie: string; nickname: string } | null> {
   let jar = cookie;
 
-  const home = await fetch("https://pan.quark.cn/", {
+  const home = await panRequest("https://pan.quark.cn/", {
     headers: { "user-agent": UA, cookie: jar, referer: REFERER },
-    redirect: "manual",
-    cache: "no-store",
   }).catch(() => null);
-  if (home) {
-    const extra = collectSetCookies(home.headers);
-    if (extra) jar = mergeCookies(jar, extra);
+  if (home?.headers["set-cookie"]) {
+    jar = mergeCookies(jar, collectSetCookies(new Headers({ "set-cookie": home.headers["set-cookie"] })));
   }
 
-  const res = await fetch("https://pan.quark.cn/account/info?fr=pc&platform=pc", {
+  const res = await panRequest("https://pan.quark.cn/account/info?fr=pc&platform=pc", {
     headers: { "user-agent": UA, cookie: jar, referer: REFERER },
-    cache: "no-store",
   }).catch(() => null);
-  if (!res) return null;
+  if (!res || res.status === 0) return null;
 
-  const extra2 = collectSetCookies(res.headers);
-  if (extra2) jar = mergeCookies(jar, extra2);
+  if (res.headers["set-cookie"]) {
+    jar = mergeCookies(jar, collectSetCookies(new Headers({ "set-cookie": res.headers["set-cookie"] })));
+  }
 
-  const json = (await res.json().catch(() => null)) as { data?: { nickname?: string } } | null;
+  type NickResp = { data?: { nickname?: string } };
+  let json: NickResp | null = null;
+  try {
+    json = JSON.parse(res.text) as NickResp;
+  } catch {
+    json = null;
+  }
   const nickname = json?.data?.nickname;
   return nickname ? { cookie: jar, nickname } : null;
 }
@@ -127,20 +131,28 @@ async function call(
   if (cookie) headers.cookie = cookie;
   if (init.body !== undefined) headers["content-type"] = "application/json;charset=UTF-8";
 
-  const res = await fetch(url, {
-    method: init.method ?? (init.body !== undefined ? "POST" : "GET"),
+  const method = init.method ?? (init.body !== undefined ? "POST" : "GET");
+  const res = await panRequest(url, {
+    method,
     headers,
-    body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
-    cache: "no-store",
-  }).catch(() => null);
+    body: init.body !== undefined ? JSON.stringify(init.body) : null,
+  }).catch((e) => {
+    throw new PanFail("upstream", `夸克请求失败：${e instanceof Error ? e.message : String(e)}`);
+  });
 
-  if (!res) throw new PanFail("upstream", "连不上夸克接口");
+  if (res.status === 0) {
+    throw new PanFail("upstream", "连不上夸克接口（fetch 与 curl 都失败了）");
+  }
   if (res.status === 429) throw new PanFail("rate-limited", "夸克接口限流，稍后再试");
 
-  const json = (await res.json().catch(() => null)) as
-    | { status?: number; code?: number; message?: string; data?: Record<string, unknown> }
-    | null;
-  if (!json) throw new PanFail("upstream", "夸克返回了非 JSON 响应");
+  type JsonResp = { status?: number; code?: number; message?: string; data?: Record<string, unknown> };
+  let json: JsonResp | null = null;
+  try {
+    json = JSON.parse(res.text) as JsonResp;
+  } catch {
+    json = null;
+  }
+  if (!json) throw new PanFail("upstream", `夸克返回了非 JSON（HTTP ${res.status}）`);
 
   const code = json.code ?? json.status ?? 0;
   if (code !== 0 && code !== 200) {
