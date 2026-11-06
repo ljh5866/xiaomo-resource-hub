@@ -2,8 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  Check,
-  Copy,
   Download,
   FolderOpen,
   FileText,
@@ -67,7 +65,6 @@ export function ParsePanel({
   const [loading, setLoading] = useState(true);
   const [share, setShare] = useState<Share | null>(null);
   const [error, setError] = useState<{ message: string; code?: string } | null>(null);
-  const [copied, setCopied] = useState<string | null>(null);
   const [preparing, setPreparing] = useState<string | null>(null);
   const [crumbs, setCrumbs] = useState<{ fid: string; name: string }[]>([]);
 
@@ -117,18 +114,6 @@ export function ParsePanel({
     return crumbs.length ? crumbs[crumbs.length - 1].fid : "0";
   }
 
-  function downloadHref(f: PanFile): string {
-    const qs = new URLSearchParams({
-      linkId: String(linkId),
-      fid: f.fid,
-      name: f.name,
-      size: String(f.size),
-      pdir: currentDir(),
-    });
-    if (f.token) qs.set("token", f.token);
-    return `/api/pan/download?${qs.toString()}`;
-  }
-
   /**
    * 下载统一走 /api/pan/download（服务器中转）。
    * 直链直出已验证不可行：夸克直链绑定账号 Cookie，用户浏览器打开会 412 / ERR_INVALID_RESPONSE。
@@ -173,16 +158,6 @@ export function ParsePanel({
       setError({ message: "网络异常，稍后再试" });
     } finally {
       setPreparing(null);
-    }
-  }
-
-  async function copy(text: string, key: string) {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(key);
-      window.setTimeout(() => setCopied(null), 1500);
-    } catch {
-      setCopied(null);
     }
   }
 
@@ -300,7 +275,6 @@ export function ParsePanel({
 
           <ul className="divide-y divide-line rounded-[8px] border border-line">
             {files.map((f) => {
-              const href = downloadHref(f);
               return (
                 <li key={f.fid} className="flex flex-wrap items-center gap-2 px-4 py-3">
                   <FileText className="size-4 shrink-0 text-dim" strokeWidth={1.5} aria-hidden />
@@ -315,35 +289,20 @@ export function ParsePanel({
                       去绑定网盘
                     </a>
                   ) : (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => void startDownload(f)}
-                        disabled={preparing === f.fid}
-                        className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-[6px] bg-accent px-3 text-[12px] font-medium text-on-accent transition-colors hover:bg-accent-strong disabled:opacity-60"
-                        title="经本站服务器、用你自己的账号取链并中转"
-                      >
-                        {preparing === f.fid ? (
-                          <Loader2 className="size-3.5 animate-spin" strokeWidth={2} aria-hidden />
-                        ) : (
-                          <Download className="size-3.5" strokeWidth={1.5} aria-hidden />
-                        )}
-                        {preparing === f.fid ? "取链中…" : "下载"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void copy(new URL(href, window.location.origin).toString(), f.fid)}
-                        className="inline-flex min-h-8 w-8 cursor-pointer items-center justify-center rounded-[6px] border border-line text-muted hover:border-accent hover:text-accent"
-                        title="复制下载地址（本站中转，需登录后访问）"
-                        aria-label="复制下载地址"
-                      >
-                        {copied === f.fid ? (
-                          <Check className="size-3 text-ok" strokeWidth={2} aria-hidden />
-                        ) : (
-                          <Copy className="size-3" strokeWidth={1.5} aria-hidden />
-                        )}
-                      </button>
-                    </>
+                    <button
+                      type="button"
+                      onClick={() => void startDownload(f)}
+                      disabled={preparing === f.fid}
+                      className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-[6px] bg-accent px-3 text-[12px] font-medium text-on-accent transition-colors hover:bg-accent-strong disabled:opacity-60"
+                      title="经本站服务器、用你自己的账号取链并中转"
+                    >
+                      {preparing === f.fid ? (
+                        <Loader2 className="size-3.5 animate-spin" strokeWidth={2} aria-hidden />
+                      ) : (
+                        <Download className="size-3.5" strokeWidth={1.5} aria-hidden />
+                      )}
+                      {preparing === f.fid ? "取链中…" : "下载"}
+                    </button>
                   )}
                 </li>
               );
