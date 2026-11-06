@@ -3,6 +3,7 @@ import { get } from "@/db/client";
 import { isPanProvider, SHARE_PARSERS, type PanFile } from "@/lib/pan/types";
 import { getDirectLink, providerReady } from "@/lib/pan";
 import { resolveCookie } from "@/lib/pan/credentials";
+import { putPrepared } from "@/lib/pan/prepared";
 
 type LinkRow = {
   id: number;
@@ -72,8 +73,23 @@ export async function POST(req: Request) {
   }
 
   try {
-    const direct = await getDirectLink(link.id, provider, parsed.shareId, parsed.passcode, file, cred.cookie, subDir);
-    return Response.json({ ok: true, direct, credentialSource: cred.source });
+    const direct = await getDirectLink(
+      link.id,
+      provider,
+      parsed.shareId,
+      parsed.passcode,
+      file,
+      cred.cookie,
+      subDir,
+    );
+    // 存进短期缓存，前端拿 ticket 去下载时就不用再取一遍链
+    const ticket = putPrepared({
+      url: direct.url,
+      cookie: cred.cookie,
+      fileName: direct.fileName,
+      size: direct.size,
+    });
+    return Response.json({ ok: true, ticket, direct, credentialSource: cred.source });
   } catch (err) {
     const message = err instanceof Error ? err.message : "取直链失败";
     const code = (err as { code?: string }).code ?? "upstream";

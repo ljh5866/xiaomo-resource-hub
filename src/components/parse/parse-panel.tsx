@@ -68,6 +68,7 @@ export function ParsePanel({
   const [share, setShare] = useState<Share | null>(null);
   const [error, setError] = useState<{ message: string; code?: string } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [preparing, setPreparing] = useState<string | null>(null);
   const [crumbs, setCrumbs] = useState<{ fid: string; name: string }[]>([]);
 
   const load = useCallback(
@@ -132,6 +133,49 @@ export function ParsePanel({
    * 下载统一走 /api/pan/download（服务器中转）。
    * 直链直出已验证不可行：夸克直链绑定账号 Cookie，用户浏览器打开会 412 / ERR_INVALID_RESPONSE。
    */
+  /**
+   * 两段式下载：先取链（前端可见「取链中…」），拿到 ticket 再触发下载。
+   *
+   * 之前直接把 a[href] 指向 /api/pan/download：服务器要在流里跑完 token→detail→save→task
+   * 才吐出第一个字节，浏览器那 20–30 秒什么提示都没有，看起来像卡住。
+   */
+  async function startDownload(f: PanFile) {
+    setPreparing(f.fid);
+    setError(null);
+    try {
+      const res = await fetch("/api/pan/direct", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          linkId,
+          fid: f.fid,
+          name: f.name,
+          size: f.size,
+          token: f.token ?? null,
+          pdirFid: currentDir(),
+        }),
+      });
+      const json = (await res.json()) as { ok?: boolean; ticket?: string; error?: string; code?: string };
+      if (!res.ok || !json.ok || !json.ticket) {
+        setError({ message: json.error ?? "取链失败", code: json.code });
+        return;
+      }
+      const qs = new URLSearchParams({
+        linkId: String(linkId),
+        fid: f.fid,
+        name: f.name,
+        size: String(f.size),
+        pdir: currentDir(),
+        ticket: json.ticket,
+      });
+      window.location.href = `/api/pan/download?${qs.toString()}`;
+    } catch {
+      setError({ message: "网络异常，稍后再试" });
+    } finally {
+      setPreparing(null);
+    }
+  }
+
   async function copy(text: string, key: string) {
     try {
       await navigator.clipboard.writeText(text);
@@ -272,14 +316,20 @@ export function ParsePanel({
                     </a>
                   ) : (
                     <>
-                      <a
-                        href={href}
-                        className="inline-flex min-h-8 items-center gap-1.5 rounded-[6px] bg-accent px-3 text-[12px] font-medium text-on-accent transition-colors hover:bg-accent-strong"
-                        title="经本站服务器、用你自己的账号取链并中转，支持断点续传"
+                      <button
+                        type="button"
+                        onClick={() => void startDownload(f)}
+                        disabled={preparing === f.fid}
+                        className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-[6px] bg-accent px-3 text-[12px] font-medium text-on-accent transition-colors hover:bg-accent-strong disabled:opacity-60"
+                        title="经本站服务器、用你自己的账号取链并中转"
                       >
-                        <Download className="size-3.5" strokeWidth={1.5} aria-hidden />
-                        下载
-                      </a>
+                        {preparing === f.fid ? (
+                          <Loader2 className="size-3.5 animate-spin" strokeWidth={2} aria-hidden />
+                        ) : (
+                          <Download className="size-3.5" strokeWidth={1.5} aria-hidden />
+                        )}
+                        {preparing === f.fid ? "取链中…" : "下载"}
+                      </button>
                       <button
                         type="button"
                         onClick={() => void copy(new URL(href, window.location.origin).toString(), f.fid)}

@@ -5,6 +5,7 @@ import { getDirectLink, providerReady } from "@/lib/pan";
 import { quarkCdnHeaders } from "@/lib/pan/quark";
 import { resolveCookie } from "@/lib/pan/credentials";
 import { openRangeStream } from "@/lib/pan/fast-download";
+import { takePrepared } from "@/lib/pan/prepared";
 
 /**
  * GET /api/pan/download?linkId=&fid=&name=&size=&token=&pdir=
@@ -48,6 +49,7 @@ export async function GET(req: Request) {
   const size = Number(url.searchParams.get("size") ?? 0);
   const pdirFid = url.searchParams.get("pdir") ?? "0";
   const token = url.searchParams.get("token");
+  const ticket = url.searchParams.get("ticket") ?? "";
 
   if (!Number.isFinite(linkId) || linkId <= 0 || !fid) {
     return new Response("缺少参数", { status: 400 });
@@ -85,26 +87,35 @@ export async function GET(req: Request) {
   const body = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
-        const direct = await getDirectLink(
-          link.id,
-          provider,
-          parsed.shareId,
-          parsed.passcode,
-          file,
-          cred.cookie,
-          pdirFid,
-        );
+        // 前端已经用 ticket 把直链取好了 —— 直接用，省掉 token→detail→save→task 这一串
+        const prepared = ticket ? takePrepared(ticket) : null;
 
-        const result = await openRangeStream(
-          direct.url,
-          quarkCdnHeaders(rangeHeader, cred.cookie),
-          {
-            concurrency: Number(process.env.PAN_RANGE_CONCURRENCY ?? 6),
-            retries: 3,
-            // 列表里已经有大小，省掉一次跨境探测
-            knownTotal: size > 0 ? size : null,
-          },
-        );
+        let cdnUrl: string;
+        let cdnHeaders: Record<string, string>;
+
+        if (prepared) {
+          cdnUrl = prepared.url;
+          cdnHeaders = quarkCdnHeaders(rangeHeader, prepared.cookie);
+        } else {
+          const direct = await getDirectLink(
+            link.id,
+            provider,
+            parsed.shareId,
+            parsed.passcode,
+            file,
+            cred.cookie,
+            pdirFid,
+          );
+          cdnUrl = direct.url;
+          cdnHeaders = quarkCdnHeaders(rangeHeader, cred.cookie);
+        }
+
+        const result = await openRangeStream(cdnUrl, cdnHeaders, {
+          concurrency: Number(process.env.PAN_RANGE_CONCURRENCY ?? 6),
+          retries: 3,
+          // 列表里已经有大小，省掉一次跨境探测
+          knownTotal: size > 0 ? size : null,
+        });
 
         const reader = result.stream.getReader();
 
