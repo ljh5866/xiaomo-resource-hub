@@ -3,6 +3,7 @@ import { get } from "@/db/client";
 import { isPanProvider, SHARE_PARSERS, type PanFile } from "@/lib/pan/types";
 import { getDirectLink, providerReady } from "@/lib/pan";
 import { quarkCdnHeaders } from "@/lib/pan/quark";
+import { openRangeStream } from "@/lib/pan/fast-download";
 import { resolveCookie } from "@/lib/pan/credentials";
 
 /**
@@ -87,34 +88,48 @@ export async function GET(req: Request) {
   }
 
   const range = req.headers.get("range");
-  const upstream = await fetch(direct.url, {
-    headers: quarkCdnHeaders(range, cred.cookie),
-    cache: "no-store",
-  }).catch(() => null);
 
-  if (!upstream) return new Response("连不上网盘 CDN", { status: 502 });
-  if (!upstream.ok && upstream.status !== 206) {
-    return new Response(`网盘返回 ${upstream.status}（直链可能已过期，刷新重试）`, {
-      status: 502,
+  /**
+   * 多连接并发拉取（照抄云析的分片并发思路）：
+   * 夸克限速是按单连接算的，开 6 条 Range 连接能叠加到 ~6 倍。
+   * 服务器忽略 Range 时会自动回退单流，所以这里不用先判断。
+   */
+  let result;
+  try {
+    result = await openRangeStream(direct.url, quarkCdnHeaders(range, cred.cookie), {
+      concurrency: Number(process.env.PAN_RANGE_CONCURRENCY ?? 6),
+      targetSeconds: 5,
+      retries: 3,
     });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "拉流失败";
+    if (/range-ignored/.test(message)) {
+      // 服务器不支持 Range：回退单流
+      const res = await fetch(direct.url, {
+        headers: quarkCdnHeaders(range, cred.cookie),
+        cache: "no-store",
+      }).catch(() => null);
+      if (!res?.body) return new Response("连不上网盘 CDN", { status: 502 });
+      return new Response(res.body.pipeThrough(throttle(RATE)), {
+        status: res.status,
+        headers: buildHeaders(direct.fileName || name, res.headers.get("content-length")),
+      });
+    }
+    return new Response(`网盘拉流失败：${message}`, { status: 502 });
   }
-  if (!upstream.body) return new Response("网盘没有返回内容", { status: 502 });
 
-  const headers = new Headers();
-  headers.set("content-type", upstream.headers.get("content-type") ?? "application/octet-stream");
-  const len = upstream.headers.get("content-length");
-  if (len) headers.set("content-length", len);
-  const cr = upstream.headers.get("content-range");
-  if (cr) headers.set("content-range", cr);
-  headers.set("accept-ranges", "bytes");
-  headers.set(
-    "content-disposition",
-    `attachment; filename*=UTF-8''${encodeURIComponent(direct.fileName || name)}`,
-  );
-  headers.set("cache-control", "no-store");
-
-  return new Response(upstream.body.pipeThrough(throttle(RATE)), {
-    status: upstream.status,
-    headers,
+  return new Response(result.stream.pipeThrough(throttle(RATE)), {
+    status: 200,
+    headers: buildHeaders(direct.fileName || name, result.total ? String(result.total) : null),
   });
+}
+
+function buildHeaders(fileName: string, contentLength: string | null): Headers {
+  const headers = new Headers();
+  headers.set("content-type", "application/octet-stream");
+  if (contentLength) headers.set("content-length", contentLength);
+  headers.set("accept-ranges", "none");
+  headers.set("content-disposition", `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
+  headers.set("cache-control", "no-store");
+  return headers;
 }
