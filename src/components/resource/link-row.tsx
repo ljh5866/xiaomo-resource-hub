@@ -143,12 +143,19 @@ export function LinkRow({
           </button>
         ) : loggedIn ? (
           <a
-            href={`/go/${link.id}`}
+            href={
+              /**
+               * provider=direct 是 3DM 那种带 Referer ACL 的 CDN 直链：
+               * 浏览器跟 302 后 Referer 变成站内域名，源站直接 403，
+               * 所以改成服务端代拉（/api/soft/download 带 3dm 的 Referer 去取）。
+               */
+              link.provider === "direct" ? `/api/soft/download?linkId=${link.id}` : `/go/${link.id}`
+            }
             target="_blank"
-            rel="noopener noreferrer"
+            rel={link.provider === "direct" ? "noopener" : "noopener noreferrer"}
             className="inline-flex min-h-11 items-center justify-center gap-1.5 bg-accent text-[13px] font-medium text-on-accent transition-colors hover:bg-accent-strong"
           >
-            打开
+            {link.provider === "direct" ? "下载" : "打开"}
             <ExternalLink className="size-3.5" strokeWidth={1.5} aria-hidden />
           </a>
         ) : (
