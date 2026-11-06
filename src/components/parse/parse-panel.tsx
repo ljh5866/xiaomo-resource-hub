@@ -1,7 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Check, Copy, Download, ExternalLink, FolderOpen, FileText, Loader2, TriangleAlert } from "lucide-react";
+import {
+  Check,
+  Copy,
+  Download,
+  FolderOpen,
+  FileText,
+  Loader2,
+  TriangleAlert,
+} from "lucide-react";
 
 type PanFile = {
   fid: string;
@@ -20,8 +28,6 @@ type Share = {
   needsLogin: boolean;
 };
 
-type Direct = { url: string; expiresIn: number | null; fileName: string; size: number };
-
 function fmtBytes(n: number): string {
   if (!n) return "—";
   const units = ["B", "KB", "MB", "GB", "TB"];
@@ -35,8 +41,10 @@ function fmtBytes(n: number): string {
 }
 
 /**
- * 解析面板：进页面自动解析当前链接，列出文件；点单个文件取直链。
- * 所有请求都只带 linkId，服务端自己查库，前端构造不出别家的分享。
+ * 解析面板：进页面自动解析当前链接 → 目录树 → 点文件走服务端代理下载。
+ *
+ * 为什么不把直链给浏览器：夸克直链绑定账号 Cookie，浏览器直接打开是 412。
+ * 所以下载链接指向 /api/pan/download，由服务器带 Cookie 拉流再转给用户。
  */
 export function ParsePanel({
   linkId,
@@ -56,8 +64,6 @@ export function ParsePanel({
   const [loading, setLoading] = useState(true);
   const [share, setShare] = useState<Share | null>(null);
   const [error, setError] = useState<{ message: string; code?: string } | null>(null);
-  const [busyFid, setBusyFid] = useState<string | null>(null);
-  const [directs, setDirects] = useState<Record<string, Direct>>({});
   const [copied, setCopied] = useState<string | null>(null);
   const [crumbs, setCrumbs] = useState<{ fid: string; name: string }[]>([]);
 
@@ -93,42 +99,24 @@ export function ParsePanel({
 
   function openDir(dir: PanFile) {
     setCrumbs((prev) => [...prev, { fid: dir.fid, name: dir.name }]);
-    setDirects({});
     void load(dir.fid);
   }
 
   function goCrumb(index: number) {
     const next = crumbs.slice(0, index);
     setCrumbs(next);
-    setDirects({});
     void load(next.length ? next[next.length - 1].fid : "0");
   }
 
-  async function getDirect(file: PanFile) {
-    setBusyFid(file.fid);
-    try {
-      const res = await fetch("/api/pan/direct", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          linkId,
-          fid: file.fid,
-          name: file.name,
-          size: file.size,
-          token: file.token ?? null,
-        }),
-      });
-      const json = (await res.json()) as { ok?: boolean; direct?: Direct; error?: string; code?: string };
-      if (!res.ok || !json.ok || !json.direct) {
-        setError({ message: json.error ?? "取直链失败", code: json.code });
-      } else {
-        setDirects((prev) => ({ ...prev, [file.fid]: json.direct as Direct }));
-      }
-    } catch {
-      setError({ message: "网络异常，稍后再试" });
-    } finally {
-      setBusyFid(null);
-    }
+  function downloadHref(f: PanFile): string {
+    const qs = new URLSearchParams({
+      linkId: String(linkId),
+      fid: f.fid,
+      name: f.name,
+      size: String(f.size),
+    });
+    if (f.token) qs.set("token", f.token);
+    return `/api/pan/download?${qs.toString()}`;
   }
 
   async function copy(text: string, key: string) {
@@ -159,7 +147,7 @@ export function ParsePanel({
         {!hasCredential && (
           <span className="ml-auto inline-flex items-center gap-1 text-danger">
             <TriangleAlert className="size-3.5" strokeWidth={2} aria-hidden />
-            服务器未配置 {providerName} 登录凭证，只能看列表，取不到直链
+            服务器未配置 {providerName} 登录凭证，只能看列表
           </span>
         )}
       </div>
@@ -197,11 +185,7 @@ export function ParsePanel({
         <>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="flex flex-wrap items-center gap-1 text-[13px] text-muted">
-              <button
-                type="button"
-                onClick={() => goCrumb(0)}
-                className="cursor-pointer hover:text-accent"
-              >
+              <button type="button" onClick={() => goCrumb(0)} className="cursor-pointer hover:text-accent">
                 根目录
               </button>
               {crumbs.map((c, i) => (
@@ -251,70 +235,53 @@ export function ParsePanel({
 
           <ul className="divide-y divide-line rounded-[8px] border border-line">
             {files.map((f) => {
-              const direct = directs[f.fid];
+              const href = downloadHref(f);
               return (
-                <li key={f.fid} className="px-4 py-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <FileText className="size-4 shrink-0 text-dim" strokeWidth={1.5} aria-hidden />
-                    <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{f.name}</span>
-                    <span className="font-mono text-[11px] text-dim">{fmtBytes(f.size)}</span>
-                    <button
-                      type="button"
-                      onClick={() => void getDirect(f)}
-                      disabled={busyFid === f.fid}
-                      className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-[6px] bg-accent px-3 text-[12px] font-medium text-on-accent transition-colors hover:bg-accent-strong disabled:opacity-60"
-                    >
-                      {busyFid === f.fid ? (
-                        <Loader2 className="size-3.5 animate-spin" strokeWidth={2} aria-hidden />
-                      ) : (
-                        <Download className="size-3.5" strokeWidth={1.5} aria-hidden />
-                      )}
-                      获取直链
-                    </button>
-                  </div>
+                <li key={f.fid} className="flex flex-wrap items-center gap-2 px-4 py-3">
+                  <FileText className="size-4 shrink-0 text-dim" strokeWidth={1.5} aria-hidden />
+                  <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{f.name}</span>
+                  <span className="font-mono text-[11px] text-dim">{fmtBytes(f.size)}</span>
 
-                  {direct && (
-                    <div className="mt-2 rounded-[6px] bg-surface-2 px-3 py-2">
-                      <p className="break-all font-mono text-[11px] text-muted">{direct.url}</p>
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => void copy(direct.url, f.fid)}
-                          className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-[6px] border border-line px-2 text-[11px] text-muted hover:border-accent hover:text-accent"
-                        >
-                          {copied === f.fid ? (
-                            <Check className="size-3 text-ok" strokeWidth={2} aria-hidden />
-                          ) : (
-                            <Copy className="size-3" strokeWidth={1.5} aria-hidden />
-                          )}
-                          {copied === f.fid ? "已复制" : "复制直链"}
-                        </button>
-                        <a
-                          href={direct.url}
-                          target="_blank"
-                          rel="noopener noreferrer nofollow"
-                          className="inline-flex min-h-8 items-center gap-1.5 rounded-[6px] border border-line px-2 text-[11px] text-muted hover:border-accent hover:text-accent"
-                        >
-                          浏览器打开
-                          <ExternalLink className="size-3" strokeWidth={1.5} aria-hidden />
-                        </a>
-                        {direct.expiresIn && (
-                          <span className="font-mono text-[10px] text-dim">
-                            约 {Math.round(direct.expiresIn / 60)} 分钟后失效
-                          </span>
+                  {hasCredential ? (
+                    <>
+                      <a
+                        href={href}
+                        className="inline-flex min-h-8 items-center gap-1.5 rounded-[6px] bg-accent px-3 text-[12px] font-medium text-on-accent transition-colors hover:bg-accent-strong"
+                      >
+                        <Download className="size-3.5" strokeWidth={1.5} aria-hidden />
+                        下载
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void copy(new URL(href, window.location.origin).toString(), f.fid)
+                        }
+                        className="inline-flex min-h-8 w-8 cursor-pointer items-center justify-center rounded-[6px] border border-line text-muted hover:border-accent hover:text-accent"
+                        title="复制下载地址（需登录后访问）"
+                        aria-label="复制下载地址"
+                      >
+                        {copied === f.fid ? (
+                          <Check className="size-3 text-ok" strokeWidth={2} aria-hidden />
+                        ) : (
+                          <Copy className="size-3" strokeWidth={1.5} aria-hidden />
                         )}
-                      </div>
-                    </div>
+                      </button>
+                    </>
+                  ) : (
+                    <span className="text-[11px] text-dim">需配置凭证</span>
                   )}
                 </li>
               );
             })}
           </ul>
 
-          <p className="px-1 text-[11px] leading-relaxed text-dim">
-            直链由 {providerName} 直接签发，本站不中转文件。夸克取直链时会把文件转存一份到站点账号的网盘，
-            下载完可自行忽略；直链有时效，过期请重新获取。
-          </p>
+          <div className="space-y-1 px-1 text-[11px] leading-relaxed text-dim">
+            <p>
+              下载由本站服务器中转（{providerName} 直链绑定账号，浏览器直接打开会 412），
+              支持断点续传；服务器限速由部署方设定。
+            </p>
+            <p>取链时会把文件转存一份到站点账号，下载完成后可忽略，不长期占用空间。</p>
+          </div>
         </>
       )}
     </div>

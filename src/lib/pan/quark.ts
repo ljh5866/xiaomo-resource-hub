@@ -25,6 +25,20 @@ export function hasCredential(): boolean {
   return cookie().length > 0;
 }
 
+/**
+ * 访问夸克 CDN 直链时必须带的头。
+ * 实测：不带 Cookie 一律 412（直链绑定账号），UA 用浏览器 UA 也一样 412。
+ */
+export function quarkCdnHeaders(range?: string | null): Record<string, string> {
+  const h: Record<string, string> = {
+    "user-agent": UA,
+    cookie: cookie(),
+    referer: REFERER,
+  };
+  if (range) h.range = range;
+  return h;
+}
+
 async function call(
   path: string,
   init: { method?: string; body?: unknown; query?: Record<string, string> } = {},
