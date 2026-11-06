@@ -163,6 +163,9 @@ async function call(
     }
     if (code === 41006) throw new PanFail("passcode-wrong", "提取码不对");
     if (code === 41010 || /频繁|限流/.test(msg)) throw new PanFail("rate-limited", msg);
+    if (code === 50051 || /st invalid|token \[st/i.test(msg)) {
+      throw new PanFail("share-invalid", "取链令牌已失效，请刷新页面重试");
+    }
     throw new PanFail("upstream", msg);
   }
   return (json.data ?? {}) as Record<string, unknown>;

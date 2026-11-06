@@ -71,7 +71,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const direct = await getDirectLink(link.id, provider, parsed.shareId, file, cred.cookie);
+    const direct = await getDirectLink(link.id, provider, parsed.shareId, parsed.passcode, file, cred.cookie);
     return Response.json({ ok: true, direct, credentialSource: cred.source });
   } catch (err) {
     const message = err instanceof Error ? err.message : "取直链失败";

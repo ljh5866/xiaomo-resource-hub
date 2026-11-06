@@ -50,16 +50,18 @@ export async function getDirectLink(
   linkId: number,
   provider: PanProvider,
   shareId: string,
+  passcode: string,
   file: PanFile,
   cookie = "",
 ): Promise<PanDirect> {
   if (provider !== "quark") throw new Error(`${provider} 还没接`);
 
-  let stoken = take(linkId, shareId);
-  if (!stoken) {
-    stoken = await quark.quarkToken(shareId, "", cookie);
-    put(linkId, shareId, stoken);
-  }
+  /**
+   * 取链必须用**新鲜**的 stoken：夸克会作废旧的（实测 code 50051 `token [st invalid]`），
+   * 而且必须带真实提取码换 —— 之前用空 passcode 兜底，需要提取码的分享会全军覆没。
+   */
+  const stoken = await quark.quarkToken(shareId, passcode, cookie);
+  put(linkId, shareId, stoken);
   return quark.quarkDirect(shareId, stoken, file, cookie);
 }
 
