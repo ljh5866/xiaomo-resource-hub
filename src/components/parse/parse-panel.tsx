@@ -308,17 +308,6 @@ export function ParsePanel({
               );
             })}
           </ul>
-
-          <div className="space-y-1 px-1 text-[11px] leading-relaxed text-dim">
-            <p>
-              「下载」由本站服务器用你自己的账号取链并中转。受「香港机房 → 国内 CDN」地域限速，
-              通常只有几十 KB/s —— 这是网络位置决定的，不是限速设置。
-            </p>
-            <p>
-              想要满速，请用<strong className="text-ink">云析 YunX 桌面版</strong>（开源客户端，
-              多线程直连网盘，实测 10 MB/s 以上）：把这条分享链接复制过去，用你自己的账号下载。
-            </p>
-          </div>
         </>
       )}
     </div>

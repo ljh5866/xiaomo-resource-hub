@@ -92,31 +92,13 @@ export default async function PanBindPage() {
                 <PanExtensionBind />
 
                 <div className="space-y-2 rounded-[6px] bg-surface-2 px-3 py-3 text-[11px] leading-relaxed text-muted">
-                  <p className="font-medium text-ink">只有这一种绑定方式</p>
-                  <p>
-                    夸克的登录态存在 <span className="font-mono">__pus / __puus</span> 这两个 httpOnly cookie
-                    里，网页脚本读不到，只有浏览器扩展的 <span className="font-mono">chrome.cookies</span> 能读。
-                    所以必须先装扩展，再点上面的「读取并绑定」。
-                  </p>
-                  <p>
-                    没装？点「下载绑定扩展」→ 解压 →
-                    地址栏打开 <span className="font-mono">edge://extensions</span>（Chrome 是{" "}
-                    <span className="font-mono">chrome://extensions</span>）→ 打开「开发者模式」→
-                    「加载解压缩的扩展」→ 选中解压出来的 <span className="font-mono">extension</span> 文件夹 →
-                    回到本页刷新。
-                  </p>
-                  <p>用之前请先在同一个浏览器登录 pan.quark.cn。</p>
+                  <p>没装扩展：点「下载扩展」→ 解压 → 打开浏览器扩展页 → 开启「开发者模式」→「加载解压缩的扩展」→ 选中解压出的文件夹 → 回本页点「重新检测」。</p>
+                  <p>用之前先在同一个浏览器登录 pan.quark.cn。</p>
                 </div>
               </div>
             </>
           )}
         </div>
-      </section>
-
-      <section className="mt-6 space-y-2 text-[11px] leading-relaxed text-dim">
-        <p>· Cookie 用 AES-256-GCM 加密存储，密钥由站点密钥派生；解绑即物理删除。</p>
-        <p>· 每次点下载都会把这个文件转存一份到你的网盘，下载完可以在夸克里删掉。</p>
-        <p>· Cookie 大约 1–2 个月过期，过期后这里会显示「上次使用失败」，重新粘一次即可。</p>
       </section>
     </div>
   );

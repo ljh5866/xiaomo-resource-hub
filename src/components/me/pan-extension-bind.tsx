@@ -175,8 +175,7 @@ export function PanExtensionBind({ onDone }: { onDone?: () => void }) {
       </div>
 
       <p className="mt-2 text-[11px] leading-relaxed text-muted">
-        扩展会读取本浏览器里 <span className="font-mono">*.quark.cn</span> 的登录 cookie
-        （`__pus` 是 httpOnly，网页 JS 读不到，只有扩展能读）。用之前先在同一个浏览器登录{" "}
+        用之前先在同一个浏览器登录{" "}
         <a
           href="https://pan.quark.cn"
           target="_blank"
