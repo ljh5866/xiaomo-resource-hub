@@ -14,20 +14,34 @@ export function PanBindForm() {
     <form action={action} className="space-y-4">
       <div>
         <label htmlFor="pan-cookie" className="block text-[12px] font-medium text-ink">
-          夸克 Cookie
+          夸克 Cookie / cURL
         </label>
-        <p className="mt-1 text-[11px] leading-relaxed text-muted">
-          浏览器登录 <span className="font-mono">pan.quark.cn</span> → F12 → Network → 刷新 → 点任意请求 →
-          复制 Request Headers 里 <span className="font-mono">Cookie:</span> 整行。
-          建议用小号，因为每次下载都会往这个账号里转存一份文件。
-        </p>
+
+        <div className="mt-2 space-y-2 rounded-[6px] bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-muted">
+          <p className="font-medium text-ink">方式一（推荐，最不容易出错）</p>
+          <p>
+            电脑浏览器打开 <span className="font-mono">pan.quark.cn</span> 登录 → F12 → Network → 刷新 →
+            右键任意一条请求 → <span className="font-mono">Copy</span> →{" "}
+            <span className="font-mono">Copy as cURL</span> → 整段粘到下面
+          </p>
+          <p className="font-medium text-ink">方式二</p>
+          <p>
+            同样位置点开请求 → <span className="font-mono">Headers → Request Headers</span> → 复制{" "}
+            <span className="font-mono">Cookie:</span> 冒号后那一整行
+          </p>
+          <p className="text-danger">
+            ✗ 不要用控制台 <span className="font-mono">document.cookie</span>：拿不到 httpOnly 的{" "}
+            <span className="font-mono">__pus / __puus</span>，粘过来一定验证失败
+          </p>
+        </div>
+
         <textarea
           id="pan-cookie"
           name="cookie"
-          rows={4}
+          rows={5}
           required
           spellCheck={false}
-          placeholder="__pus=...; __puus=...; （整行粘贴，几百个字符）"
+          placeholder="方式一：直接粘贴整段 curl 'https://pan.quark.cn/...' -H 'cookie: __pus=...'&#10;方式二：粘贴 __pus=...; __puus=...; isQuark=true"
           className="mt-2 w-full resize-y rounded-[8px] border border-line bg-surface-2 px-3 py-2 font-mono text-[11px] leading-[1.6] text-ink outline-none focus:border-accent"
         />
       </div>
