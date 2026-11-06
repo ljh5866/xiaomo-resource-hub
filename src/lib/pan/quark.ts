@@ -276,8 +276,9 @@ async function quarkSave(
   const taskId = String(task.task_id ?? "");
   if (!taskId) throw new PanFail("upstream", "转存任务没拿到 task_id");
 
-  for (let i = 0; i < 12; i += 1) {
-    await new Promise((r) => setTimeout(r, 700));
+  // 转存排队通常 1–3 秒；400ms 一探，最多等 6 秒
+  for (let i = 0; i < 15; i += 1) {
+    await new Promise((r) => setTimeout(r, 400));
     const t = await call(
       "/1/clouddrive/task",
       { query: { task_id: taskId, retry_index: String(i) } },

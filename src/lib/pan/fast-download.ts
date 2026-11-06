@@ -25,9 +25,14 @@ export type RangeDownloadOptions = {
   retries?: number;
   /** 低于这个大小直接单流 */
   parallelMinBytes?: number;
+  /**
+   * 已知文件大小（来自分享列表页）。给了就**跳过探测请求** ——
+   * 跨境链路上那次 probe 要 3–6 秒，纯浪费。
+   */
+  knownTotal?: number | null;
 };
 
-const DEFAULTS: Required<RangeDownloadOptions> = {
+const DEFAULTS: Required<Omit<RangeDownloadOptions, "knownTotal">> = {
   concurrency: 6,
   minChunk: 256 * 1024,
   maxChunk: 4 * 1024 * 1024,
@@ -138,28 +143,37 @@ export async function openRangeStream(
   opts?: RangeDownloadOptions,
 ): Promise<RangeStreamResult> {
   const o = { ...DEFAULTS, ...opts };
-  const probe = await probeSize(url, headers);
 
-  // 探测失败或服务器不支持 Range → 单流
-  if (!probe.acceptsRange || !probe.total) {
+  // 已知大小就直接用，省掉一次跨境探测（3–6 秒）
+  let total: number | null = o.knownTotal && o.knownTotal > 0 ? o.knownTotal : null;
+  let acceptsRange = total !== null;
+
+  if (total === null) {
+    const probe = await probeSize(url, headers);
+    total = probe.total;
+    acceptsRange = probe.acceptsRange;
+  }
+
+  // 不知道大小或服务器不支持 Range → 单流
+  if (!acceptsRange || !total) {
     const res = await fetch(url, { headers, cache: "no-store" });
     if (!res.body) throw new Error(`网盘返回 ${res.status}，没有内容`);
     return {
       stream: res.body as ReadableStream<Uint8Array>,
-      total: probe.total,
+      total: total,
       parallel: false,
       chunkSize: 0,
       chunkCount: 1,
     };
   }
 
-  const plan = planRanges(probe.total, opts);
+  const plan = planRanges(total, opts);
   if (!plan.parallel) {
     const res = await fetch(url, { headers, cache: "no-store" });
     if (!res.body) throw new Error(`网盘返回 ${res.status}，没有内容`);
     return {
       stream: res.body as ReadableStream<Uint8Array>,
-      total: probe.total,
+      total,
       parallel: false,
       chunkSize: plan.chunkSize,
       chunkCount: 1,
@@ -167,8 +181,8 @@ export async function openRangeStream(
   }
 
   const ranges: Array<[number, number]> = [];
-  for (let start = 0; start < probe.total; start += plan.chunkSize) {
-    ranges.push([start, Math.min(start + plan.chunkSize - 1, probe.total - 1)]);
+  for (let start = 0; start < total; start += plan.chunkSize) {
+    ranges.push([start, Math.min(start + plan.chunkSize - 1, total - 1)]);
   }
 
   let nextToStart = 0;
@@ -229,7 +243,7 @@ export async function openRangeStream(
 
   return {
     stream,
-    total: probe.total,
+    total,
     parallel: true,
     chunkSize: plan.chunkSize,
     chunkCount: ranges.length,

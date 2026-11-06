@@ -3,23 +3,24 @@ import { get } from "@/db/client";
 import { isPanProvider, SHARE_PARSERS, type PanFile } from "@/lib/pan/types";
 import { getDirectLink, providerReady } from "@/lib/pan";
 import { quarkCdnHeaders } from "@/lib/pan/quark";
-import { openRangeStream } from "@/lib/pan/fast-download";
 import { resolveCookie } from "@/lib/pan/credentials";
+import { openRangeStream } from "@/lib/pan/fast-download";
 
 /**
- * GET /api/pan/download?linkId=&fid=&name=&size=
+ * GET /api/pan/download?linkId=&fid=&name=&size=&token=&pdir=
  *
- * 为什么必须由服务器转发：夸克直链绑定了账号 Cookie，用户浏览器直接打开是 412。
- * 所以这里带 Cookie 拉流，边下边转给浏览器，并支持 Range（断点续传）。
+ * 为什么必须由服务器转发：夸克直链绑定了账号 Cookie，用户浏览器直接打开是
+ * 412 / ERR_INVALID_RESPONSE（实测）。所以服务端带 Cookie 拉流，再转给浏览器。
  *
- * 限速：默认 2 MB/s，可在 .env 用 PAN_DOWNLOAD_RATE 调整（字节/秒，0 = 不限）。
+ * 关键设计：**先返回响应头，把准备工作放进流里**。
+ * 取链要串行跑 token → detail → save → task → download 五步，跨境每步 3–6 秒；
+ * 如果等这些都做完再 return Response，浏览器会白转 20–40 秒。现在它立刻进入下载态，
+ * 拿到第一批字节就开始写盘。
  */
 const RATE = Number(process.env.PAN_DOWNLOAD_RATE ?? 2 * 1024 * 1024);
 
 function throttle(bytesPerSec: number): TransformStream<Uint8Array, Uint8Array> {
-  if (!bytesPerSec || bytesPerSec <= 0) {
-    return new TransformStream();
-  }
+  if (!bytesPerSec || bytesPerSec <= 0) return new TransformStream();
   let startedAt = 0;
   let sent = 0;
   return new TransformStream({
@@ -74,62 +75,59 @@ export async function GET(req: Request) {
   const parsed = SHARE_PARSERS[provider](link.url, link.extractCode);
   if (!parsed) return new Response("链接格式无法识别", { status: 400 });
 
-  const file: PanFile = { fid, name, size, isDir: false, token };
-
   const cred = resolveCookie(user.id ?? null, provider);
   if (!cred) return new Response("还没有绑定网盘账号", { status: 400 });
 
-  let direct;
-  try {
-    direct = await getDirectLink(link.id, provider, parsed.shareId, parsed.passcode, file, cred.cookie, pdirFid);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "取直链失败";
-    return new Response(message, { status: 502 });
-  }
+  const file: PanFile = { fid, name, size, isDir: false, token };
+  const rangeHeader = req.headers.get("range");
 
-  const range = req.headers.get("range");
+  // 准备工作全放进流里：浏览器立刻进入下载态，而不是白等 20–40 秒
+  const body = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      try {
+        const direct = await getDirectLink(
+          link.id,
+          provider,
+          parsed.shareId,
+          parsed.passcode,
+          file,
+          cred.cookie,
+          pdirFid,
+        );
 
-  /**
-   * 多连接并发拉取（照抄云析的分片并发思路）：
-   * 夸克限速是按单连接算的，开 6 条 Range 连接能叠加到 ~6 倍。
-   * 服务器忽略 Range 时会自动回退单流，所以这里不用先判断。
-   */
-  let result;
-  try {
-    result = await openRangeStream(direct.url, quarkCdnHeaders(range, cred.cookie), {
-      concurrency: Number(process.env.PAN_RANGE_CONCURRENCY ?? 6),
-      targetSeconds: 5,
-      retries: 3,
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "拉流失败";
-    if (/range-ignored/.test(message)) {
-      // 服务器不支持 Range：回退单流
-      const res = await fetch(direct.url, {
-        headers: quarkCdnHeaders(range, cred.cookie),
-        cache: "no-store",
-      }).catch(() => null);
-      if (!res?.body) return new Response("连不上网盘 CDN", { status: 502 });
-      return new Response(res.body.pipeThrough(throttle(RATE)), {
-        status: res.status,
-        headers: buildHeaders(direct.fileName || name, res.headers.get("content-length")),
-      });
-    }
-    return new Response(`网盘拉流失败：${message}`, { status: 502 });
-  }
+        const result = await openRangeStream(
+          direct.url,
+          quarkCdnHeaders(rangeHeader, cred.cookie),
+          {
+            concurrency: Number(process.env.PAN_RANGE_CONCURRENCY ?? 6),
+            retries: 3,
+            // 列表里已经有大小，省掉一次跨境探测
+            knownTotal: size > 0 ? size : null,
+          },
+        );
 
-  return new Response(result.stream.pipeThrough(throttle(RATE)), {
-    status: 200,
-    headers: buildHeaders(direct.fileName || name, result.total ? String(result.total) : null),
+        const reader = result.stream.getReader();
+
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value) controller.enqueue(value);
+        }
+        controller.close();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "拉流失败";
+        console.error("[pan/download]", message);
+        controller.error(new Error(message));
+      }
+    },
   });
-}
 
-function buildHeaders(fileName: string, contentLength: string | null): Headers {
   const headers = new Headers();
   headers.set("content-type", "application/octet-stream");
-  if (contentLength) headers.set("content-length", contentLength);
-  headers.set("accept-ranges", "none");
-  headers.set("content-disposition", `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`);
+  headers.set("content-disposition", `attachment; filename*=UTF-8''${encodeURIComponent(name)}`);
   headers.set("cache-control", "no-store");
-  return headers;
+  headers.set("x-pan-provider", provider);
+  // 不设 content-length：走 chunked，浏览器立刻开始收，不会因为长度对不上而失败
+
+  return new Response(body.pipeThrough(throttle(RATE)), { status: 200, headers });
 }
