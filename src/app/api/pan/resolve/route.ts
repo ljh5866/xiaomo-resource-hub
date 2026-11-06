@@ -65,10 +65,16 @@ export async function POST(req: Request) {
     return Response.json({ error: "链接格式无法识别（可能不是分享链接）" }, { status: 400 });
   }
 
-  // 用户自己的凭证优先，没有就回退站点账号；都没有时仍可匿名列目录（预览）
+  // 站点不再代持任何网盘账号：没绑定就不能解析
   const cred = resolveCookie(user.id ?? null, provider);
-  const cookie = cred?.cookie ?? "";
-  const credentialSource = cred?.source ?? "none";
+  if (!cred) {
+    return Response.json(
+      { error: "还没有绑定网盘账号，先到「我的 → 网盘绑定」绑一下", code: "no-credential", needBind: true },
+      { status: 400 },
+    );
+  }
+  const cookie = cred.cookie;
+  const credentialSource = cred.source;
 
   try {
     // 进子目录：复用已缓存的 stoken，只换 pdir_fid

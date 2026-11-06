@@ -9,6 +9,7 @@ import {
   FileText,
   Loader2,
   TriangleAlert,
+  UserRound,
 } from "lucide-react";
 
 type PanFile = {
@@ -61,7 +62,7 @@ export function ParsePanel({
   resourceTitle: string;
   shareUrl: string;
   hasCredential: boolean;
-  credentialSource: "user" | "site" | "none";
+  credentialSource: "user" | "none";
 }) {
   const [loading, setLoading] = useState(true);
   const [share, setShare] = useState<Share | null>(null);
@@ -190,12 +191,20 @@ export function ParsePanel({
         >
           {shareUrl}
         </a>
-        {!hasCredential && (
-          <span className="ml-auto inline-flex items-center gap-1 text-danger">
-            <TriangleAlert className="size-3.5" strokeWidth={2} aria-hidden />
-            服务器未配置 {providerName} 登录凭证，只能看列表
-          </span>
-        )}
+        <span className="ml-auto inline-flex items-center gap-1.5">
+          {credentialSource === "user" ? (
+            <span className="inline-flex items-center gap-1 rounded-[4px] bg-ok/10 px-1.5 py-0.5 text-[11px] text-ok">
+              <UserRound className="size-3" strokeWidth={2} aria-hidden />
+              用你自己的账号
+            </span>
+          ) : null}
+          {!hasCredential && (
+            <span className="inline-flex items-center gap-1 text-danger">
+              <TriangleAlert className="size-3.5" strokeWidth={2} aria-hidden />
+              没有 {providerName} 凭证，只能看列表
+            </span>
+          )}
+        </span>
       </div>
 
       {loading && (

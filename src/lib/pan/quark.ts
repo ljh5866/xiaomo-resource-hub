@@ -27,13 +27,13 @@ const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +
   "quark-cloud-drive/3.23.2 Chrome/112.0.5615.165 Electron/24.1.3.8 Safari/537.36";
 
-/** 站点自己的夸克账号（.env），作为用户未绑定时的回退 */
-export function siteCookie(): string {
-  return (process.env.QUARK_COOKIE ?? "").trim();
-}
-
-export function hasSiteCredential(): boolean {
-  return siteCookie().length > 0;
+/**
+ * 注意：站点**不再代持**任何网盘账号（2026-11-06 起）。
+ * 所有解析/下载都使用用户自己绑定的凭证（见 src/lib/pan/credentials.ts）。
+ * .env 里的 QUARK_COOKIE 已废弃，留着也不会被读取。
+ */
+export function deprecatedSiteCookie(): string {
+  return "";
 }
 
 /** 访问夸克 CDN 直链时必须带的头（实测：不带 Cookie 一律 412） */

@@ -97,6 +97,33 @@ export default async function ParsePage({ params }: { params: Promise<{ id: stri
         <p className="mt-8 border border-line bg-surface-2 px-4 py-8 text-center text-[13px] text-muted">
           {meta.name} 的解析还在开发中，目前只支持夸克网盘。
         </p>
+      ) : !cred ? (
+        <div className="mt-8 rounded-[10px] border border-line p-6">
+          <h2 className="text-[15px] font-semibold text-ink">解析前需要先绑定你自己的{meta.name}</h2>
+          <p className="mt-2 text-[13px] leading-relaxed text-muted">
+            本站不代持任何网盘账号，解析和下载都用你自己的账号完成：
+            文件转存到你的网盘，直链在你的浏览器里直接打开，走你自己的带宽。
+          </p>
+          <ol className="mt-3 space-y-1.5 text-[12px] leading-relaxed text-muted">
+            <li>1. 电脑浏览器登录 pan.quark.cn（手机 App 拿不到 Cookie）</li>
+            <li>2. 装「小莫资源网 · 网盘绑定助手」扩展，点一下「读取并绑定」；或手动复制 Cookie 粘贴</li>
+            <li>3. 回到这个页面刷新，就能看到分享里的文件了</li>
+          </ol>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <a
+              href="/me/pan"
+              className="inline-flex min-h-9 items-center rounded-[6px] bg-accent px-4 text-[12px] font-medium text-on-accent hover:bg-accent-strong"
+            >
+              去绑定网盘
+            </a>
+            <a
+              href="/xiaomo-pan-helper.zip"
+              className="inline-flex min-h-9 items-center rounded-[6px] border border-line px-3 text-[12px] text-muted hover:border-accent hover:text-accent"
+            >
+              下载绑定扩展
+            </a>
+          </div>
+        </div>
       ) : (
         <ParsePanel
           linkId={row.id}

@@ -48,23 +48,22 @@ export function getCredentialRow(userId: number, provider: PanProvider): Row | n
   );
 }
 
-export type ResolvedCredential = { cookie: string; source: "user" | "site" };
+/** 只使用用户自己的凭证：站点不代持任何网盘账号。 */
+export type ResolvedCredential = { cookie: string; source: "user" };
 
 /**
- * 解析顺序：用户自己的凭证优先，没有才回退站点账号。
- * 站点账号用环境变量（QUARK_COOKIE），用户凭证用密文表。
+ * 解析用户自己的网盘凭证。
+ *
+ * 设计决定（2026-11-06）：**不再回退站点公共账号**。
+ * 站点不代持任何网盘登录态，未绑定的人只能用「查看分享目录」之外的什么都不行 ——
+ * 这样风控、转存垃圾、带宽都分散到各用户自己的账号上。
  */
 export function resolveCookie(userId: number | null, provider: PanProvider): ResolvedCredential | null {
-  if (userId) {
-    const row = getCredentialRow(userId, provider);
-    if (row) {
-      const plain = decryptSecret(row.secret_enc);
-      if (plain) return { cookie: plain, source: "user" };
-    }
-  }
-  const site = process.env[`${provider.toUpperCase()}_COOKIE`]?.trim();
-  if (site) return { cookie: site, source: "site" };
-  return null;
+  if (!userId) return null;
+  const row = getCredentialRow(userId, provider);
+  if (!row) return null;
+  const plain = decryptSecret(row.secret_enc);
+  return plain ? { cookie: plain, source: "user" } : null;
 }
 
 export function saveCredential(

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { CheckCircle2, TriangleAlert, Unplug } from "lucide-react";
 import { getSessionUser } from "@/lib/auth";
 import { getCredentialRow } from "@/lib/pan/credentials";
-import { hasSiteCredential } from "@/lib/pan/quark";
+
 import { unbindQuarkAction } from "@/lib/pan/actions";
 import { PanBindForm } from "@/components/me/pan-bind-form";
 import { PanQrBind } from "@/components/me/pan-qr-bind";
@@ -27,7 +27,7 @@ export default async function PanBindPage() {
   if (!viewer) redirect("/login?next=%2Fme%2Fpan");
 
   const row = getCredentialRow(viewer.id, "quark");
-  const siteFallback = hasSiteCredential();
+
 
   return (
     <div className="container-page max-w-3xl py-10">
@@ -86,12 +86,10 @@ export default async function PanBindPage() {
             </div>
           ) : (
             <>
-              {siteFallback && (
-                <p className="mb-4 rounded-[6px] bg-surface-2 px-3 py-2 text-[11px] text-muted">
-                  站点目前配了一个公共账号，未绑定的用户也能解析和下载，但速度受服务器限制，
-                  而且所有文件都会转存到同一个账号里。绑定自己的更划算。
-                </p>
-              )}
+              <p className="mb-4 rounded-[6px] bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-muted">
+                本站<strong className="text-ink">不代持任何网盘账号</strong>：绑定后解析和下载都用你自己的账号，
+                文件转存到你的网盘、直链在你的浏览器直接打开，走你自己的带宽。未绑定无法使用站内解析。
+              </p>
               <div className="space-y-4">
                 <PanExtensionBind />
                 <div className="flex items-center gap-2 text-[11px] text-dim">
