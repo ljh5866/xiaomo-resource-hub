@@ -38,6 +38,28 @@ export function PanExtensionBind({ onDone }: { onDone?: () => void }) {
     };
   }, []);
 
+  /**
+   * 重新检测：扩展只在页面加载时广播一次 READY，之后再装扩展本页是收不到的。
+   * 所以这里主动发一个探测请求 —— 有回包就说明扩展装好并生效了。
+   */
+  const redetect = useCallback(() => {
+    setPhase("probing");
+    setMessage("");
+    const requestId = `ping-${Date.now()}`;
+    const onResult = (e: MessageEvent) => {
+      if (e.source !== window || e.data?.type !== RESULT) return;
+      if (e.data.requestId !== requestId) return;
+      window.removeEventListener("message", onResult);
+      setPhase("ready");
+    };
+    window.addEventListener("message", onResult);
+    window.postMessage({ type: REQ, requestId }, "*");
+    window.setTimeout(() => {
+      window.removeEventListener("message", onResult);
+      setPhase((p) => (p === "probing" ? "no-ext" : p));
+    }, 2500);
+  }, []);
+
   const bind = useCallback(() => {
     setPhase("working");
     setMessage("");
@@ -126,15 +148,29 @@ export function PanExtensionBind({ onDone }: { onDone?: () => void }) {
           </span>
         )}
         {phase === "probing" && (
-          <span className="ml-auto text-[11px] text-dim">检测扩展…</span>
+          <span className="ml-auto inline-flex items-center gap-1.5 text-[11px] text-dim">
+            <Loader2 className="size-3 animate-spin" strokeWidth={2} aria-hidden />
+            检测扩展…
+          </span>
         )}
         {phase === "no-ext" && (
-          <a
-            href="/xiaomo-pan-helper.zip"
-            className="ml-auto inline-flex min-h-8 items-center rounded-[6px] border border-line px-3 text-[12px] text-accent hover:border-accent"
-          >
-            未检测到扩展，下载安装
-          </a>
+          <span className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={redetect}
+              className="inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-[6px] border border-line px-2 text-[12px] text-muted transition-colors hover:border-accent hover:text-accent"
+              title="如果刚装完扩展，点这里重新检测"
+            >
+              <RefreshCw className="size-3.5" strokeWidth={1.5} aria-hidden />
+              重新检测
+            </button>
+            <a
+              href="/xiaomo-pan-helper.zip"
+              className="inline-flex min-h-8 items-center rounded-[6px] bg-accent px-3 text-[12px] font-medium text-on-accent hover:bg-accent-strong"
+            >
+              下载扩展
+            </a>
+          </span>
         )}
       </div>
 

@@ -5,8 +5,6 @@ import { getSessionUser } from "@/lib/auth";
 import { getCredentialRow } from "@/lib/pan/credentials";
 
 import { unbindQuarkAction } from "@/lib/pan/actions";
-import { PanBindForm } from "@/components/me/pan-bind-form";
-import { PanQrBind } from "@/components/me/pan-qr-bind";
 import { PanExtensionBind } from "@/components/me/pan-extension-bind";
 
 export const dynamic = "force-dynamic";
@@ -92,27 +90,24 @@ export default async function PanBindPage() {
               </p>
               <div className="space-y-4">
                 <PanExtensionBind />
-                <div className="flex items-center gap-2 text-[11px] text-dim">
-                  <span className="h-px flex-1 bg-line" />
-                  或者手动粘贴
-                  <span className="h-px flex-1 bg-line" />
-                </div>
-                <PanBindForm />
-              </div>
 
-              <details className="mt-5 border-t border-line pt-3">
-                <summary className="cursor-pointer text-[12px] text-muted hover:text-ink">
-                  扫码登录（实验性，可能失败）
-                </summary>
-                <div className="mt-4 space-y-3">
-                  <p className="rounded-[6px] bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-muted">
-                    夸克的扫码登录不在 HTTP 层交接登录态，服务端实测拿到的只有访客 cookie
-                    （`isQuark=false`、网盘接口返回 401 guest），所以扫码成功后大概率仍然绑不上。
-                    优先用上面的手动粘贴；扫码只作为备选。
+                <div className="space-y-2 rounded-[6px] bg-surface-2 px-3 py-3 text-[11px] leading-relaxed text-muted">
+                  <p className="font-medium text-ink">只有这一种绑定方式</p>
+                  <p>
+                    夸克的登录态存在 <span className="font-mono">__pus / __puus</span> 这两个 httpOnly cookie
+                    里，网页脚本读不到，只有浏览器扩展的 <span className="font-mono">chrome.cookies</span> 能读。
+                    所以必须先装扩展，再点上面的「读取并绑定」。
                   </p>
-                  <PanQrBind />
+                  <p>
+                    没装？点「下载绑定扩展」→ 解压 →
+                    地址栏打开 <span className="font-mono">edge://extensions</span>（Chrome 是{" "}
+                    <span className="font-mono">chrome://extensions</span>）→ 打开「开发者模式」→
+                    「加载解压缩的扩展」→ 选中解压出来的 <span className="font-mono">extension</span> 文件夹 →
+                    回到本页刷新。
+                  </p>
+                  <p>用之前请先在同一个浏览器登录 pan.quark.cn。</p>
                 </div>
-              </details>
+              </div>
             </>
           )}
         </div>
