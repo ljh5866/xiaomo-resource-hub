@@ -15,7 +15,15 @@ STATE=".deploy-state"
 cd "$APP_DIR"
 
 T0=$(date +%s)
-step() { printf '\n\033[38;5;179m→ %s\033[0m\n' "$*"; }
+STEP_START=""
+step() {
+  # 每步开始前打印上一步耗时 —— 部署慢的时候一眼看出卡在哪
+  if [[ -n "$STEP_START" ]]; then
+    printf '\033[38;5;245m  ↳ 上一步 %ss\033[0m\n' "$(since "$STEP_START")"
+  fi
+  STEP_START=$(date +%s)
+  printf '\n\033[38;5;179m→ %s\033[0m\n' "$*"
+}
 ok_step() { printf '\033[38;5;108m  ✓ %s（%ss）\033[0m\n' "$1" "$2"; }
 since() { echo $(( $(date +%s) - $1 )); }
 
