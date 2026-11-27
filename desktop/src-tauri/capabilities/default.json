@@ -1,0 +1,9 @@
+{
+  "identifier": "default",
+  "description": "桌面端默认能力：打开外链、窗口基本控制",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "opener:default"
+  ]
+}

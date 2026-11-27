@@ -82,8 +82,9 @@ let seq = maxRow ? Number(String(maxRow.code).split("-")[2]) || 0 : 0;
 const insRes = db.prepare(
   `INSERT INTO resources
      (code, slug, title, subtitle, summary, content_md, category_id, cover_url, cover_blur,
-      platforms, language, status, is_featured, source_url, published_at, created_at, updated_at)
-   VALUES (?,?,?,?,?,?,?,?,?,?,?, 'published', 0, ?, unixepoch(), unixepoch(), unixepoch())`,
+      platforms, language, version, size_label, status, is_featured, source_url,
+      published_at, created_at, updated_at)
+   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?, 'published', 0, ?, unixepoch(), unixepoch(), unixepoch())`,
 );
 const insLink = db.prepare(
   `INSERT INTO resource_links (resource_id, url, url_hash, provider, extract_code, label, is_primary, status, created_at)
@@ -113,6 +114,14 @@ for (const r of rows) {
   if (exists) {
     if (!DRY) {
       db.prepare("UPDATE resources SET platforms = ? WHERE id = ?").run(JSON.stringify(["windows"]), exists.id);
+      // 早期版本漏写了 version / size_label，这里补上（幂等）
+      if (r.version || r.size) {
+        db.prepare("UPDATE resources SET version = COALESCE(version, ?), size_label = COALESCE(size_label, ?) WHERE id = ?").run(
+          r.version ?? null,
+          r.size ?? null,
+          exists.id,
+        );
+      }
       if (!exists.coverUrl && newCoverUrl) {
         copyFileSync(srcFile, join(COVER_DST, coverName));
         db.prepare("UPDATE resources SET cover_url = ? WHERE id = ?").run(newCoverUrl, exists.id);
@@ -160,6 +169,8 @@ for (const r of rows) {
       null,
       JSON.stringify(["windows"]),
       "zh",
+      r.version ?? null,
+      r.size ?? null,
       `https://soft.3dmgame.com/down/${r.id}.html`,
     );
     const rid = Number(info.lastInsertRowid);

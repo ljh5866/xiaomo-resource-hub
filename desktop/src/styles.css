@@ -1,0 +1,388 @@
+/* 设计令牌对齐网站前台：暖白底 + 墨黑字 + 一个强调色，无阴影堆叠 */
+
+:root {
+  --bg: #faf9f7;
+  --surface: #ffffff;
+  --surface-2: #f3f1ee;
+  --ink: #1a1a18;
+  --muted: #6b6b66;
+  --dim: #9a9a94;
+  --line: #e6e3de;
+  --accent: #1a56db;
+  --accent-strong: #1240a8;
+  --on-accent: #ffffff;
+  --ok: #2f8f5b;
+  --danger: #c0392b;
+  --radius: 10px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 14px/1.6 system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* ── 布局 ── */
+.app {
+  display: grid;
+  grid-template-columns: 208px 1fr;
+  height: 100%;
+}
+
+.side {
+  border-right: 1px solid var(--line);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.brand {
+  padding: 18px 16px 12px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand-mark {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--bg);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.side-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 8px 16px;
+}
+
+.side-group {
+  margin: 14px 8px 6px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+}
+
+.side-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.side-item:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.side-item.active {
+  background: var(--surface-2);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.side-item .count {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.search {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 0 10px;
+  height: 34px;
+}
+
+.search:focus-within {
+  border-color: var(--accent);
+  background: var(--surface);
+}
+
+.search input {
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+  color: var(--ink);
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  min-height: 0;
+}
+
+/* ── 卡片网格 ── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+  text-align: left;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.15s;
+}
+
+.card:hover {
+  border-color: var(--ink);
+}
+
+.card-cover {
+  aspect-ratio: 16 / 10;
+  background: var(--surface-2);
+  display: block;
+  width: 100%;
+  object-fit: cover;
+}
+
+.card-cover-empty {
+  aspect-ratio: 16 / 10;
+  display: grid;
+  place-items: center;
+  color: var(--dim);
+  font-size: 11px;
+  background: var(--surface-2);
+}
+
+.card-body {
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 92px;
+}
+
+.card-title {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card-meta {
+  font-size: 11px;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* ── 详情 ── */
+.detail {
+  max-width: 760px;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 0 0 14px;
+  font-size: 12px;
+}
+
+.back:hover {
+  color: var(--ink);
+}
+
+.detail h1 {
+  font-size: 22px;
+  line-height: 1.35;
+  margin: 0 0 6px;
+}
+
+.detail .sub {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0 0 14px;
+}
+
+.cover-lg {
+  width: 100%;
+  max-height: 320px;
+  object-fit: cover;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  margin-bottom: 16px;
+}
+
+.body-text {
+  white-space: pre-wrap;
+  font-size: 13.5px;
+  line-height: 1.85;
+  color: var(--ink);
+}
+
+.section {
+  margin-top: 22px;
+}
+
+.section h2 {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--dim);
+  margin: 0 0 10px;
+  font-weight: 600;
+}
+
+.link-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  background: var(--surface);
+}
+
+.link-row .prov {
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 76px;
+}
+
+.link-row .url {
+  flex: 1;
+  font-size: 11px;
+  color: var(--dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, Consolas, monospace;
+}
+
+.btn {
+  border: 0;
+  border-radius: 7px;
+  background: var(--accent);
+  color: var(--on-accent);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.btn:hover {
+  background: var(--accent-strong);
+}
+
+.btn-ghost {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.btn-ghost:hover {
+  background: var(--line);
+}
+
+/* ── 状态 ── */
+.center {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--dim);
+  font-size: 13px;
+}
+
+.err {
+  color: var(--danger);
+}
+
+.more {
+  margin: 18px auto 0;
+  display: block;
+}
+
+.tagline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}

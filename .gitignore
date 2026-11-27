@@ -22,3 +22,11 @@ skills/
 # 内容导入的中间文件（链接清单 / 生成的 CSV）
 data/import/
 links.txt
+
+# 桌面端（Tauri）
+desktop/node_modules/
+desktop/dist/
+desktop/src-tauri/target/
+desktop/src-tauri/gen/
+desktop/src-tauri/icons/android/
+desktop/src-tauri/icons/ios/
