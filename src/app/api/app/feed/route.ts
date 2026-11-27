@@ -1,5 +1,6 @@
 import { all, get } from "@/db/client";
 import { providerOf } from "@/lib/constants";
+import { corsOptions } from "@/lib/app-cors";
 
 /**
  * GET /api/app/feed?category=&kind=&page=&q=&limit=
@@ -101,3 +102,5 @@ export async function GET(req: Request) {
     })),
   });
 }
+
+export const OPTIONS = corsOptions;

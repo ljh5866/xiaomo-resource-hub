@@ -1,0 +1,159 @@
+/* 账号区 + 登录弹窗 + 收藏按钮 */
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.account-name {
+  font-size: 12px;
+  color: var(--muted);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── 弹窗 ── */
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 26, 24, 0.32);
+  display: grid;
+  place-items: center;
+  z-index: 50;
+}
+
+.modal {
+  width: 380px;
+  max-width: calc(100vw - 40px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 22px 22px 18px;
+}
+
+.modal h2 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+
+.modal-sub {
+  margin: 0 0 16px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.seg {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  background: var(--surface-2);
+  border-radius: 8px;
+  margin-bottom: 14px;
+}
+
+.seg button {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  padding: 6px 0;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.seg button.on {
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.form input {
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--surface);
+  outline: none;
+}
+
+.form input:focus {
+  border-color: var(--accent);
+}
+
+.form .row {
+  display: flex;
+  gap: 8px;
+}
+
+.form .row input {
+  flex: 1;
+}
+
+.form-err {
+  margin: 0;
+  font-size: 12px;
+  color: var(--danger);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* ── 详情页收藏 ── */
+.detail-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.detail-head h1 {
+  flex: 1;
+  min-width: 0;
+}
+
+.fav-btn {
+  flex: 0 0 auto;
+  margin-top: 4px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 5px 12px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.fav-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.fav-btn.on {
+  border-color: #d9a441;
+  color: #b8860b;
+  background: #fdf6e3;
+}

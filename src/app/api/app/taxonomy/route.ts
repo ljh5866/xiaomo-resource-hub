@@ -1,4 +1,5 @@
 import { all } from "@/db/client";
+import { corsOptions } from "@/lib/app-cors";
 
 /**
  * GET /api/app/taxonomy
@@ -41,3 +42,5 @@ export async function GET() {
     tags: tags.filter((t) => t.count > 0),
   });
 }
+
+export const OPTIONS = corsOptions;

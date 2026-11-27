@@ -2,15 +2,19 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, coverUrl, type Card, type Detail, type Taxonomy } from "./lib/api";
 import { installDesktopShell } from "./lib/shell";
 import { TitleBar } from "./components/TitleBar";
+import { LoginDialog } from "./components/LoginDialog";
+import { useAuth } from "./lib/auth";
 
-type View = { k: "feed" } | { k: "detail"; slug: string };
+type View = { k: "feed" } | { k: "detail"; slug: string } | { k: "favorites" };
 
 export function App() {
+  const { user, favorites, loading: authLoading, logout, toggleFavorite } = useAuth();
   const [tax, setTax] = useState<Taxonomy | null>(null);
   const [category, setCategory] = useState("");
   const [kind, setKind] = useState("");
   const [q, setQ] = useState("");
   const [view, setView] = useState<View>({ k: "feed" });
+  const [showLogin, setShowLogin] = useState(false);
 
   useEffect(() => {
     installDesktopShell();
@@ -32,6 +36,15 @@ export function App() {
             小莫资源库
           </div>
         <div className="side-scroll">
+          <div className="side-group">我的</div>
+          <button
+            className={`side-item ${view.k === "favorites" ? "active" : ""}`}
+            onClick={() => (user ? setView({ k: "favorites" }) : setShowLogin(true))}
+          >
+            我的收藏
+            {user && <span className="count">{favorites.size}</span>}
+          </button>
+
           <div className="side-group">分类</div>
           <button
             className={`side-item ${!category ? "active" : ""}`}
@@ -98,17 +111,44 @@ export function App() {
               </button>
             )}
           </div>
+
+          <div className="account">
+            {authLoading ? null : user ? (
+              <>
+                <span className="account-name" title={user.email}>
+                  {user.name ?? user.email}
+                </span>
+                <button className="btn btn-ghost" onClick={logout}>
+                  退出
+                </button>
+              </>
+            ) : (
+              <button className="btn" onClick={() => setShowLogin(true)}>
+                登录
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="content">
           {view.k === "detail" ? (
-            <DetailPage slug={view.slug} onBack={() => setView({ k: "feed" })} />
+            <DetailPage
+              slug={view.slug}
+              onBack={() => setView({ k: "feed" })}
+              favorited={favorites.has(view.slug)}
+              onToggleFavorite={
+                user ? () => void toggleFavorite(view.slug).catch(() => {}) : () => setShowLogin(true)
+              }
+            />
+          ) : view.k === "favorites" ? (
+            <FavoritesPage onOpen={(slug) => setView({ k: "detail", slug })} />
           ) : (
             <Feed category={category} kind={kind} q={q} onOpen={(slug) => setView({ k: "detail", slug })} />
           )}
         </div>
       </div>
     </div>
+      {showLogin && <LoginDialog onClose={() => setShowLogin(false)} />}
     </div>
   );
 }
@@ -193,7 +233,60 @@ function Feed({
   );
 }
 
-function DetailPage({ slug, onBack }: { slug: string; onBack: () => void }) {
+function FavoritesPage({ onOpen }: { onOpen: (slug: string) => void }) {
+  const { favorites } = useAuth();
+  const [items, setItems] = useState<
+    { slug: string; title: string; cover: string | null; categoryName: string }[]
+  >([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    import("./lib/api")
+      .then(({ authApi }) => authApi.me())
+      .then((me) => setItems(me.favorites))
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
+  }, [favorites]);
+
+  if (loading) return <div className="center">载入中…</div>;
+  if (!items.length) return <div className="center">还没有收藏。在资源详情页点「收藏」。</div>;
+
+  return (
+    <>
+      <div style={{ marginBottom: 14, fontSize: 12, color: "var(--dim)" }}>共 {items.length} 条收藏</div>
+      <div className="grid">
+        {items.map((it) => {
+          const src = coverUrl(it.cover);
+          return (
+            <button key={it.slug} className="card" onClick={() => onOpen(it.slug)}>
+              {src ? (
+                <img className="card-cover" src={src} alt="" loading="lazy" />
+              ) : (
+                <div className="card-cover-empty">无封面</div>
+              )}
+              <div className="card-body">
+                <div className="card-title">{it.title}</div>
+                <div className="card-meta">{it.categoryName}</div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+function DetailPage({
+  slug,
+  onBack,
+  favorited,
+  onToggleFavorite,
+}: {
+  slug: string;
+  onBack: () => void;
+  favorited: boolean;
+  onToggleFavorite: () => void;
+}) {
   const [d, setD] = useState<Detail | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -221,7 +314,16 @@ function DetailPage({ slug, onBack }: { slug: string; onBack: () => void }) {
       <button className="back" onClick={onBack}>
         ← 返回列表
       </button>
-      <h1>{d.title}</h1>
+      <div className="detail-head">
+        <h1>{d.title}</h1>
+        <button
+          className={`fav-btn ${favorited ? "on" : ""}`}
+          onClick={onToggleFavorite}
+          title={favorited ? "取消收藏" : "收藏（与网站同步）"}
+        >
+          {favorited ? "★ 已收藏" : "☆ 收藏"}
+        </button>
+      </div>
       {d.subtitle && <p className="sub">{d.subtitle}</p>}
 
       <div className="tagline">

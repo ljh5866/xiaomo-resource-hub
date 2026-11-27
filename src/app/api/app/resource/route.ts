@@ -1,6 +1,7 @@
 import { all, get } from "@/db/client";
 import { providerOf } from "@/lib/constants";
 import { parseResourceMeta, metaRows } from "@/lib/resource-meta";
+import { corsOptions } from "@/lib/app-cors";
 
 /**
  * GET /api/app/resource?slug=xxx
@@ -107,3 +108,5 @@ export async function GET(req: Request) {
     },
   });
 }
+
+export const OPTIONS = corsOptions;
