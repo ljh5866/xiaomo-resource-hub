@@ -8,6 +8,7 @@ import {
   importBrowserCookies,
   inTauri,
   looksLikePanCookie,
+  openPanLogin,
   savePanCookie,
   scanBrowsers,
   type BrowserInfo,
@@ -115,6 +116,44 @@ export function PanBind({ onClose }: { onClose: () => void }) {
           </div>
         ) : (
           <>
+            <div className="pan-section">
+              <div className="pan-label">扫码登录（推荐）</div>
+              <button
+                className="btn scan-btn"
+                disabled={busy || !inTauri()}
+                onClick={async () => {
+                  setBusy(true);
+                  setErr(null);
+                  setMsg(null);
+                  try {
+                    const cookie = await openPanLogin(provider);
+                    if (!cookie) {
+                      setErr("没有拿到 Cookie —— 确认已在窗口里扫码并点了「完成登录」");
+                      return;
+                    }
+                    savePanCookie(provider, cookie);
+                    setBound(cookie);
+                    const ok = looksLikePanCookie(provider, cookie);
+                    setMsg(
+                      ok
+                        ? `已登录 ${PAN_NAMES[provider]}，共 ${cookie.split(";").length} 项 Cookie`
+                        : "已保存，但没读到网盘的关键登录字段，可能还需要在该窗口里再点一次「完成登录」",
+                    );
+                  } catch (e) {
+                    setErr(e instanceof Error ? e.message : String(e));
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                {busy ? "等待扫码…" : `打开登录窗口 · ${PAN_NAMES[provider]}`}
+              </button>
+              <p className="pan-hint">
+                会弹出一个小窗口打开{PAN_NAMES[provider]}，用手机扫码登录；登录后点窗口右上角的
+                「完成登录」，Cookie 就自动带回来了。
+              </p>
+            </div>
+
             <div className="pan-section">
               <div className="pan-label">从浏览器导入（本机）</div>
               {browsers === null ? (

@@ -12,6 +12,7 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri::Manager;
 
 mod cookies;
+mod pan_login;
 
 #[tauri::command]
 fn app_version() -> String {
@@ -33,7 +34,11 @@ pub fn run() {
             app_version,
             show_main,
             cookies::scan_browsers,
-            cookies::import_browser_cookies
+            cookies::import_browser_cookies,
+            pan_login::open_pan_login,
+            pan_login::submit_pan_cookie,
+            pan_login::take_pan_cookie,
+            pan_login::close_pan_login
         ])
         .setup(|app| {
             // ── 托盘 ──

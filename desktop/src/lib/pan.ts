@@ -92,3 +92,41 @@ export function looksLikePanCookie(provider: PanProvider, cookie: string): boole
   };
   return need[provider].some((k) => cookie.includes(k));
 }
+
+/** 各网盘的登录页/首页（内嵌窗口打开这个） */
+export const PAN_LOGIN_URL: Record<PanProvider, string> = {
+  quark: "https://pan.quark.cn/",
+  uc: "https://drive.uc.cn/",
+  baidu: "https://pan.baidu.com/",
+  xunlei: "https://pan.xunlei.com/",
+  "115": "https://115.com/",
+};
+
+/**
+ * 打开内嵌登录窗口，等用户在窗口里扫码登录后点「完成登录」。
+ * 返回拿到的 cookie（失败返回 null）。
+ */
+export async function openPanLogin(
+  provider: PanProvider,
+  timeoutMs = 5 * 60_000,
+): Promise<string | null> {
+  if (!IN_TAURI) return null;
+  const { invoke } = await import("@tauri-apps/api/core");
+
+  await invoke("open_pan_login", {
+    url: PAN_LOGIN_URL[provider],
+    title: `登录 ${PAN_NAMES[provider]}`,
+  });
+
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    await new Promise((r) => setTimeout(r, 1200));
+    const picked = await invoke<{ cookie: string; host: string } | null>("take_pan_cookie");
+    if (picked?.cookie) {
+      await invoke("close_pan_login");
+      return picked.cookie;
+    }
+  }
+  await invoke("close_pan_login");
+  return null;
+}
