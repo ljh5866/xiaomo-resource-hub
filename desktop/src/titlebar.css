@@ -31,6 +31,13 @@
   font-size: 12px;
   font-weight: 600;
   color: var(--muted);
+  flex: 0 0 auto;
+}
+
+/* 中间空白：唯一的大块拖拽区，不会盖住任何控件 */
+.titlebar-drag {
+  flex: 1;
+  height: 100%;
 }
 
 .titlebar-actions {
