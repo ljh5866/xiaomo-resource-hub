@@ -13,13 +13,14 @@
     "windows": [
       {
         "title": "小莫资源库",
+        "transparent": false,
         "width": 1180,
         "height": 780,
         "minWidth": 900,
         "minHeight": 600,
         "resizable": true,
         "center": true,
-        "decorations": true
+        "decorations": false
       }
     ],
     "security": {

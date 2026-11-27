@@ -1,0 +1,60 @@
+/* 自绘标题栏（tauri.conf.json 里 decorations:false，系统标题栏不显示） */
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.shell .app {
+  flex: 1;
+  min-height: 0;
+  grid-template-columns: 208px 1fr;
+}
+
+.titlebar {
+  height: 36px;
+  flex: 0 0 36px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  user-select: none;
+}
+
+.titlebar-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.titlebar-actions {
+  margin-left: auto;
+  display: flex;
+  height: 100%;
+}
+
+.tb-btn {
+  width: 44px;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+}
+
+.tb-btn:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.tb-close:hover {
+  background: #d64545;
+  color: #fff;
+}

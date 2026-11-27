@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, coverUrl, type Card, type Detail, type Taxonomy } from "./lib/api";
+import { installDesktopShell } from "./lib/shell";
+import { TitleBar } from "./components/TitleBar";
 
 type View = { k: "feed" } | { k: "detail"; slug: string };
 
@@ -11,6 +13,7 @@ export function App() {
   const [view, setView] = useState<View>({ k: "feed" });
 
   useEffect(() => {
+    installDesktopShell();
     api.taxonomy().then(setTax).catch(() => setTax({ categories: [], tags: [] }));
   }, []);
 
@@ -20,12 +23,14 @@ export function App() {
   );
 
   return (
-    <div className="app">
-      <aside className="side">
-        <div className="brand">
-          <span className="brand-mark">莫</span>
-          小莫资源库
-        </div>
+    <div className="shell">
+      <TitleBar />
+      <div className="app">
+        <aside className="side">
+          <div className="brand">
+            <span className="brand-mark">莫</span>
+            小莫资源库
+          </div>
         <div className="side-scroll">
           <div className="side-group">分类</div>
           <button
@@ -103,6 +108,7 @@ export function App() {
           )}
         </div>
       </div>
+    </div>
     </div>
   );
 }
