@@ -3,6 +3,7 @@ import { api, coverUrl, type Card, type Detail, type Taxonomy } from "./lib/api"
 import { installDesktopShell } from "./lib/shell";
 import { TitleBar } from "./components/TitleBar";
 import { LoginDialog } from "./components/LoginDialog";
+import { PanBind } from "./components/PanBind";
 import { useAuth } from "./lib/auth";
 
 type View = { k: "feed" } | { k: "detail"; slug: string } | { k: "favorites" };
@@ -15,6 +16,7 @@ export function App() {
   const [q, setQ] = useState("");
   const [view, setView] = useState<View>({ k: "feed" });
   const [showLogin, setShowLogin] = useState(false);
+  const [showPan, setShowPan] = useState(false);
 
   useEffect(() => {
     installDesktopShell();
@@ -43,6 +45,9 @@ export function App() {
           >
             我的收藏
             {user && <span className="count">{favorites.size}</span>}
+          </button>
+          <button className="side-item" onClick={() => setShowPan(true)}>
+            网盘登录
           </button>
 
           <div className="side-group">分类</div>
@@ -149,6 +154,7 @@ export function App() {
       </div>
     </div>
       {showLogin && <LoginDialog onClose={() => setShowLogin(false)} />}
+      {showPan && <PanBind onClose={() => setShowPan(false)} />}
     </div>
   );
 }

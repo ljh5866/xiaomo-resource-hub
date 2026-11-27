@@ -11,6 +11,8 @@ use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::Manager;
 
+mod cookies;
+
 #[tauri::command]
 fn app_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
@@ -27,7 +29,12 @@ fn show_main(window: tauri::Window) {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![app_version, show_main])
+        .invoke_handler(tauri::generate_handler![
+            app_version,
+            show_main,
+            cookies::scan_browsers,
+            cookies::import_browser_cookies
+        ])
         .setup(|app| {
             // ── 托盘 ──
             let show = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;

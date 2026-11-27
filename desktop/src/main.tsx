@@ -5,6 +5,7 @@ import { AuthProvider } from "./lib/auth";
 import "./styles.css";
 import "./titlebar.css";
 import "./auth-ui.css";
+import "./pan-ui.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
