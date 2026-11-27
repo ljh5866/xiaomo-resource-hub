@@ -231,8 +231,17 @@ function DetailPage({ slug, onBack }: { slug: string; onBack: () => void }) {
 
       {cover && <img className="cover-lg" src={cover} alt="" />}
 
-      {d.summary && <p className="body-text">{d.summary}</p>}
-      {d.content && d.content !== d.summary && <div className="body-text">{d.content}</div>}
+      {(() => {
+        // 导入时常把简介同时写进 summary 和 content，重复渲染同一段很蠢
+        const dup =
+          !!d.summary && !!d.content && d.content.replace(/\s+/g, "").startsWith(d.summary.replace(/…$/, "").replace(/\s+/g, "").slice(0, 40));
+        return (
+          <>
+            {d.summary && !dup && <p className="body-text">{d.summary}</p>}
+            {d.content && <div className="body-text">{d.content}</div>}
+          </>
+        );
+      })()}
 
       {d.links.length > 0 && (
         <div className="section">
