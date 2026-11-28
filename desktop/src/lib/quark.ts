@@ -126,6 +126,25 @@ export async function waitPanDirect(
   return null;
 }
 
+/**
+ * 转存 + 取直链 —— **在登录窗口的页面里执行**。
+ * httpOnly 的 `__pus` 拿不出来（WebView2 v20 加密），但页面里 fetch 会自动带上。
+ */
+export async function panWebDirect(
+  shareId: string,
+  stoken: string,
+  file: PanFile,
+): Promise<void> {
+  const { invoke } = await import("@tauri-apps/api/core");
+  await invoke("pan_web_direct", {
+    shareId,
+    stoken,
+    fid: file.fid,
+    fidToken: file.fid_token,
+    fileName: file.name,
+  });
+}
+
 /** 下载完成后清理转存文件（在网盘页面里删） */
 export async function panWebDelete(fids: string[]): Promise<void> {
   const clean = fids.filter(Boolean);

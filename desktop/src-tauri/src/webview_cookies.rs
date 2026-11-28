@@ -1,11 +1,10 @@
-//! 从 WebView2 的 cookie 库直读全部 cookie（含 httpOnly）。
+//! 从 WebView2 的 cookie 库读 cookie（Chromium 格式 + DPAPI）。
 //!
-//! 云析 YunX-Desktop 用 JCEF 的 `CookieManager.getCookie()` 拿全量 cookie；
-//! 我们这边的 WebView2 把 cookie 落在 **Chromium 格式的 SQLite** 里
-//! （`EBWebView/Default/Network/Cookies`），加密方式和 Chrome 一致（`v10` + DPAPI），
-//! 所以可以直接复用 `cookies.rs` 里那套解密，不用碰 COM 接口。
+//! ⚠️ 局限：新版 WebView2 也用 **v20（App-Bound 加密）**，DPAPI 解不开 —— 实测确认。
+//! 所以这里只作为兜底（老版本 WebView2 / v10 加密时可用）。
 //!
-//! 同一个 Windows 用户下 DPAPI 可解 —— 这是整条链路能成立的前提。
+//! 主力方案不依赖导 cookie：转存/取链都在登录窗口的**页面里**发请求
+//! （同源自动带 httpOnly 的 `__pus`），见 `pan_login::build_task_js`。
 
 use std::path::{Path, PathBuf};
 
@@ -15,14 +14,17 @@ use crate::cookies::decrypt_chromium;
 fn candidate_dbs() -> Vec<PathBuf> {
     let mut out: Vec<PathBuf> = Vec::new();
 
-    // ① exe 同级
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
-            out.push(dir.join("EBWebView").join("Default").join("Network").join("Cookies"));
+            out.push(
+                dir.join("EBWebView")
+                    .join("Default")
+                    .join("Network")
+                    .join("Cookies"),
+            );
         }
     }
 
-    // ② LOCALAPPDATA 下所有一级目录的 EBWebView（覆盖 Tauri 按 productName 建目录的情况）
     if let Ok(la) = std::env::var("LOCALAPPDATA") {
         if let Ok(entries) = std::fs::read_dir(&la) {
             for e in entries.flatten() {
@@ -46,7 +48,6 @@ fn candidate_dbs() -> Vec<PathBuf> {
 fn read_db(db: &Path, domains: &[String]) -> Vec<(String, String)> {
     let mut out = Vec::new();
 
-    // 复制再读：WebView2 对原库有锁
     let tmp = std::env::temp_dir().join(format!(
         "xm-wv-cookies-{}.db",
         std::time::SystemTime::now()
@@ -86,7 +87,7 @@ fn read_db(db: &Path, domains: &[String]) -> Vec<(String, String)> {
     out
 }
 
-/// 读 WebView2 里某网盘域的全部 cookie
+/// 读 WebView2 里某网盘域的 cookie（v20 加密时会返回空）
 pub fn read_webview_cookies(provider: &str) -> Result<Vec<(String, String)>, String> {
     let domains: Vec<String> = match provider {
         "quark" => vec![".quark.cn".into(), "quark.cn".into()],
@@ -109,7 +110,8 @@ pub fn read_webview_cookies(provider: &str) -> Result<Vec<(String, String)>, Str
 
     if all.is_empty() {
         return Err(
-            "WebView2 里没读到这个网盘的 cookie —— 确认已在登录窗口里登录成功".to_string(),
+            "WebView2 的 cookie 是 v20 加密，读不出来。改用「下载」按钮（在登录窗口里执行）"
+                .to_string(),
         );
     }
     Ok(all)
@@ -131,7 +133,6 @@ pub fn important(cookies: &[(String, String)], provider: &str) -> Vec<(String, S
     if keep.is_empty() {
         return cookies.to_vec();
     }
-
     cookies
         .iter()
         .filter(|(k, _)| keep.iter().any(|p| k == *p || k.starts_with(p)))

@@ -5,10 +5,11 @@ import {
   fmtSize,
   getConns,
   onDownloadProgress,
-  quarkDirect,
+  panWebDirect,
   quarkDownload,
   resolveQuarkShare,
   setConns,
+  waitPanDirect,
   type PanFile,
   type ShareListing,
 } from "../lib/quark";
@@ -83,13 +84,22 @@ export function ShareBrowse({ url }: { url: string }) {
     setRow(f.fid, { phase: "queue", got: 0, total: f.size, err: undefined });
     try {
       setRow(f.fid, { phase: "link" });
-      // Rust 直连：转存 → 轮询 → 取直链（cookie 来自 WebView2 的 cookie store，含 httpOnly）
-      const d = await quarkDirect(shareId, stoken, f);
+      // 转存/取链在登录窗口的页面里做：那里能自动带 httpOnly 的 __pus
+      await panWebDirect(shareId, stoken, f);
 
-      setRow(f.fid, { phase: "down", total: d.size || f.size });
-      const path = await quarkDownload(d.url, d.file_name || f.name);
+      const d = await waitPanDirect(90_000);
+      if (!d) {
+        setRow(f.fid, { phase: "idle", err: "等太久没结果（登录窗口可能被关掉了）" });
+        return;
+      }
+      if (d.err) {
+        setRow(f.fid, { phase: "idle", err: d.err });
+        return;
+      }
 
-      // 下载完清理转存到用户网盘的那份
+      setRow(f.fid, { phase: "down", total: f.size });
+      const path = await quarkDownload(d.url, d.name || f.name);
+
       setRow(f.fid, { phase: "idle", done: path });
     } catch (e) {
       setRow(f.fid, {

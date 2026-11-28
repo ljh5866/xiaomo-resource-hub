@@ -501,18 +501,84 @@ fn build_injector(port: u16) -> String {
     )
 }
 
-/// 写入任务参数并触发执行（在 build_injector 之后调用）
+/// 写入任务参数并执行 —— **完全自包含**，不依赖 `build_injector` 先跑过。
+/// 只要求一件事：当前页面在夸克域上（让 fetch 自动带 httpOnly cookie）。
 fn build_task_js(port: u16, task: &Task) -> String {
     format!(
         r#"
 (() => {{
   const PORT = {port};
-  window.__xmTask = {cfg};
-  if (typeof window.__xmRun === 'function') {{
-    window.__xmRun();
-  }} else {{
-    location.href = 'http://127.0.0.1:' + PORT + '/e?m=' + encodeURIComponent('页面脚本未就绪');
-  }}
+  const cfg = {cfg};
+  if (!cfg) return;
+
+  const fail = (msg) => {{
+    location.href = 'http://127.0.0.1:' + PORT + '/e?m=' + encodeURIComponent(String(msg).slice(0, 300));
+  }};
+
+  (async () => {{
+    const API = 'https://drive-pc.quark.cn';
+    const Q = 'pr=ucpro&fr=pc&uc_param_str=';
+    const jpost = async (path, extra, body) => {{
+      const r = await fetch(API + path + '?' + Q + (extra || ''), {{
+        method: 'POST',
+        headers: {{ 'content-type': 'application/json' }},
+        credentials: 'include',
+        body: JSON.stringify(body),
+      }});
+      const t = await r.text();
+      try {{ return JSON.parse(t); }} catch (e) {{ throw new Error('接口返回非 JSON: ' + t.slice(0, 80)); }}
+    }};
+    const jget = async (path, extra) => {{
+      const r = await fetch(API + path + '?' + Q + (extra || ''), {{ credentials: 'include' }});
+      return r.json();
+    }};
+
+    try {{
+      // ① 转存
+      const sv = await jpost('/1/clouddrive/share/sharepage/save', '', {{
+        fid_list: [cfg.f],
+        fid_token_list: [cfg.k],
+        to_pdir_fid: '0',
+        pwd_id: cfg.s,
+        stoken: cfg.t,
+        pdir_fid: '0',
+        scene: 'link',
+      }});
+      if (!sv || sv.status !== 200 || !sv.data) {{
+        throw new Error('转存失败：' + (sv && sv.message) + ' [' + (sv && sv.code) + ']');
+      }}
+      const taskId = sv.data.task_id;
+
+      // ② 轮询任务
+      let savedFid = null;
+      for (let i = 0; i < 24; i++) {{
+        await new Promise((r) => setTimeout(r, 500));
+        const t = await jget('/1/clouddrive/task', '&task_id=' + encodeURIComponent(taskId) + '&retry_index=' + i);
+        if (t && t.status === 200 && t.data && Number(t.data.status) === 2) {{
+          const ids = (t.data.save_as && t.data.save_as.save_as_top_fids) || [];
+          savedFid = ids[0];
+          break;
+        }}
+      }}
+      if (!savedFid) throw new Error('转存超时（夸克排队中）');
+
+      // ③ 取直链
+      const dl = await jpost('/1/clouddrive/file/download', '&sys=win32&ve=3.23.2', {{ fids: [savedFid] }});
+      if (!dl || dl.status !== 200) {{
+        throw new Error('取链失败：' + (dl && dl.message) + ' [' + (dl && dl.code) + ']');
+      }}
+      const rows = Array.isArray(dl.data) ? dl.data : (dl.data && dl.data.list) || [];
+      const row = rows[0];
+      if (!row || !row.download_url) throw new Error('夸克没返回下载地址（可能被限速/风控）');
+
+      location.href = 'http://127.0.0.1:' + PORT + '/d'
+        + '?u=' + encodeURIComponent(row.download_url)
+        + '&n=' + encodeURIComponent(row.file_name || cfg.n)
+        + '&f=' + encodeURIComponent(savedFid);
+    }} catch (e) {{
+      fail(e && e.message ? e.message : e);
+    }}
+  }})();
 }})();
 "#,
         port = port,
