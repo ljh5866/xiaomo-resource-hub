@@ -15,6 +15,7 @@ mod cookies;
 mod downloader;
 mod pan_login;
 mod quark;
+mod webview_cookies;
 
 #[tauri::command]
 async fn app_version() -> String {
@@ -54,6 +55,7 @@ pub fn run() {
             pan_login::take_pan_cookie,
             pan_login::take_pan_direct,
             pan_login::pan_window_alive,
+            pan_login::read_pan_cookie,
             pan_login::pan_web_direct,
             pan_login::pan_web_delete,
             pan_login::hide_pan_login,

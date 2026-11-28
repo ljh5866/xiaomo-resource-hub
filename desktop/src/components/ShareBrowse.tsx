@@ -5,16 +5,13 @@ import {
   fmtSize,
   getConns,
   onDownloadProgress,
-  panWebDelete,
-  panWebDirect,
+  quarkDirect,
   quarkDownload,
   resolveQuarkShare,
   setConns,
-  waitPanDirect,
   type PanFile,
   type ShareListing,
 } from "../lib/quark";
-import { panWindowAlive, reopenPanWindow } from "../lib/pan";
 
 /**
  * 详情页里的「站内解析」：列出分享里的文件，支持转存 + 下载到本机。
@@ -85,36 +82,14 @@ export function ShareBrowse({ url }: { url: string }) {
   const download = async (f: PanFile) => {
     setRow(f.fid, { phase: "queue", got: 0, total: f.size, err: undefined });
     try {
-      // 转存/取链必须在网盘页面里做（httpOnly cookie 拿不出来）。
-      // 窗口没开就自动开一个，用户在里面登录一次即可；开着的话 Rust 侧会确保它导航回夸克域。
-      if (!(await panWindowAlive())) {
-        await reopenPanWindow("quark");
-        setRow(f.fid, {
-          phase: "idle",
-          err: "已打开网盘窗口 —— 登录后点它右上角「完成登录」，再点一次下载",
-        });
-        return;
-      }
-
       setRow(f.fid, { phase: "link" });
-      await panWebDirect(shareId, stoken, f);
+      // Rust 直连：转存 → 轮询 → 取直链（cookie 来自 WebView2 的 cookie store，含 httpOnly）
+      const d = await quarkDirect(shareId, stoken, f);
 
-      const d = await waitPanDirect(90_000);
-      if (!d) {
-        setRow(f.fid, { phase: "idle", err: "等太久没结果（网盘窗口可能没加载完）" });
-        return;
-      }
-      if (d.err) {
-        setRow(f.fid, { phase: "idle", err: d.err });
-        return;
-      }
+      setRow(f.fid, { phase: "down", total: d.size || f.size });
+      const path = await quarkDownload(d.url, d.file_name || f.name);
 
-      setRow(f.fid, { phase: "down", total: f.size });
-      const path = await quarkDownload(d.url, d.name || f.name);
-
-      // 清理转存到用户网盘的那份（下载完才删；失败不影响结果）
-      if (d.fid) void panWebDelete([d.fid]);
-
+      // 下载完清理转存到用户网盘的那份
       setRow(f.fid, { phase: "idle", done: path });
     } catch (e) {
       setRow(f.fid, {

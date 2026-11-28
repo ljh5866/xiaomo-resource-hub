@@ -130,7 +130,7 @@ pub fn scan_browsers() -> Vec<BrowserInfo> {
 }
 
 /// Chromium 的 encrypted_value：去掉 v10/v20 前缀后走 DPAPI
-fn decrypt_chromium(bytes: &[u8], skipped_v20: &mut usize) -> Option<String> {
+pub fn decrypt_chromium(bytes: &[u8], skipped_v20: &mut usize) -> Option<String> {
     if bytes.len() < 3 {
         return None;
     }

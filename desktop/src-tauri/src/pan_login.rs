@@ -188,7 +188,47 @@ pub fn take_pan_direct() -> Option<DirectResult> {
     })
 }
 
-/// 下载完成后清理转存文件（在页面里删，需要登录态）
+/// 从网盘窗口的 WebView2 cookie store 直读登录态（含 httpOnly 的 `__pus`）。
+///
+/// 这是整套方案的基石：以前靠页面里 `document.cookie` + 注入脚本，读不到 httpOnly，
+/// 转存就一直是 `require login [guest]`。改成直读 cookie store 后，后续所有请求都能在
+/// Rust 里发，不再依赖页面内执行。
+#[tauri::command]
+pub fn read_pan_cookie(app: tauri::AppHandle, provider: String) -> Result<String, String> {
+    // 窗口活着才有最新登录态；没开也允许读（可能上次登录的还在）
+    let _ = app.get_webview_window("pan-login");
+
+    let all = crate::webview_cookies::read_webview_cookies(&provider)?;
+    let picked = crate::webview_cookies::important(&all, &provider);
+    let use_list = if picked.is_empty() { all } else { picked };
+
+    // 去重（同名取最后一个）
+    let mut map = std::collections::HashMap::<String, String>::new();
+    for (k, v) in use_list {
+        map.insert(k, v);
+    }
+    if map.is_empty() {
+        return Err("读到了 cookie 但没有网盘登录字段".to_string());
+    }
+
+    // __pus 是转存的硬门槛，缺了直接说清楚
+    let has_pus = map.contains_key("__pus") || map.contains_key("__puus");
+    let cookie = map
+        .iter()
+        .map(|(k, v)| format!("{k}={v}"))
+        .collect::<Vec<_>>()
+        .join("; ");
+
+    if !has_pus && (provider == "quark" || provider == "uc") {
+        return Err(format!(
+            "读到了 {} 个 cookie，但没有 __pus（httpOnly 那个）。{}",
+            map.len(),
+            "可能是 WebView2 用了新版加密；改用侧栏里的「手动粘贴」"
+        ));
+    }
+
+    Ok(cookie)
+}
 #[tauri::command]
 pub async fn pan_web_delete(app: tauri::AppHandle, fids: Vec<String>) -> Result<(), String> {
     if fids.is_empty() {

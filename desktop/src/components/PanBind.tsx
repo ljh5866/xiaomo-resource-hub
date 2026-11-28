@@ -14,6 +14,7 @@ import {
   type BrowserInfo,
   type PanProvider,
 } from "../lib/pan";
+import { readPanCookie } from "../lib/quark";
 
 /**
  * 网盘登录：先试「从浏览器一键导入」，读不到（Chrome 127+ 的 v20 加密）再手动粘贴。
@@ -148,9 +149,34 @@ export function PanBind({ onClose }: { onClose: () => void }) {
               >
                 {busy ? "等待扫码…" : `打开登录窗口 · ${PAN_NAMES[provider]}`}
               </button>
+
+              <button
+                className="btn btn-ghost scan-btn"
+                style={{ marginTop: 8 }}
+                disabled={busy || !inTauri()}
+                onClick={async () => {
+                  setBusy(true);
+                  setErr(null);
+                  setMsg(null);
+                  try {
+                    // 直接从 WebView2 的 cookie 库读（能拿到 httpOnly 的 __pus）
+                    const cookie = await readPanCookie(provider);
+                    savePanCookie(provider, cookie);
+                    setBound(cookie);
+                    setMsg(`已从登录窗口读到 ${cookie.split(";").length} 项 Cookie`);
+                  } catch (e) {
+                    setErr(typeof e === "string" ? e : e instanceof Error ? e.message : "读取失败");
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                已在窗口里登录好了 → 读取登录态
+              </button>
+
               <p className="pan-hint">
-                会弹出一个小窗口打开{PAN_NAMES[provider]}，用手机扫码登录；登录后点窗口右上角的
-                「完成登录」，Cookie 就自动带回来了。
+                点第一个按钮开窗口扫码；登录完**回来点第二个按钮**读取登录态。
+                Cookie 直接从浏览内核读，不上传服务器。
               </p>
             </div>
 

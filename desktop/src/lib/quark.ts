@@ -85,23 +85,29 @@ export async function resolveQuarkShare(url: string): Promise<{
 
 export type DirectLink = { url: string; file_name: string; size: number };
 
-/**
- * 转存 + 取直链 —— **在网盘窗口的页面里执行**。
- * 因为夸克转存需要 httpOnly 的 `__pus`，页面外拿不到（会返回 require login [guest] 31001）。
- */
-export async function panWebDirect(
+/** 转存 + 取直链（Rust 直连，cookie 来自 WebView2 cookie store） */
+export async function quarkDirect(
   shareId: string,
   stoken: string,
   file: PanFile,
-): Promise<void> {
-  const { invoke } = await import("@tauri-apps/api/core");
-  await invoke("pan_web_direct", {
+): Promise<DirectLink> {
+  const cookie = getPanCookie("quark") ?? "";
+  if (!cookie) throw new Error("还没读到夸克登录态，先在侧栏「网盘登录」里读一次");
+  return invokeCmd<DirectLink>("quark_share_direct", {
     shareId,
     stoken,
     fid: file.fid,
     fidToken: file.fid_token,
     fileName: file.name,
+    size: file.size,
+    cookie,
   });
+}
+
+/** 从 WebView2 的 cookie 库读登录态（含 httpOnly 的 __pus） */
+export async function readPanCookie(provider: "quark" | "uc" | "baidu" | "xunlei" | "115"): Promise<string> {
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<string>("read_pan_cookie", { provider });
 }
 
 /** 轮询页面回传的结果：成功给 url，失败给 err */
