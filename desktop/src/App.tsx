@@ -4,6 +4,7 @@ import { installDesktopShell } from "./lib/shell";
 import { TitleBar } from "./components/TitleBar";
 import { LoginDialog } from "./components/LoginDialog";
 import { PanBind } from "./components/PanBind";
+import { ShareBrowse } from "./components/ShareBrowse";
 import { useAuth } from "./lib/auth";
 
 type View = { k: "feed" } | { k: "detail"; slug: string } | { k: "favorites" };
@@ -361,13 +362,16 @@ function DetailPage({
         <div className="section">
           <h2>下载</h2>
           {d.links.map((l) => (
-            <div key={l.id} className="link-row">
-              <span className="prov">{l.providerName}</span>
-              <span className="url">{l.url}</span>
-              {l.code && <span className="chip">码 {l.code}</span>}
-              <button className="btn" onClick={() => openExternal(l.url)}>
-                打开
-              </button>
+            <div key={l.id} className="link-block">
+              <div className="link-row">
+                <span className="prov">{l.providerName}</span>
+                <span className="url">{l.url}</span>
+                {l.code && <span className="chip">码 {l.code}</span>}
+                <button className="btn" onClick={() => openExternal(l.url)}>
+                  打开
+                </button>
+              </div>
+              {l.provider === "quark" && <ShareBrowse url={l.url} />}
             </div>
           ))}
         </div>

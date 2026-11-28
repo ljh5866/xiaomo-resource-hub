@@ -132,6 +132,83 @@
   white-space: nowrap;
 }
 
+/* ── 站内解析 ── */
+.link-block {
+  margin-bottom: 8px;
+}
+
+.share-toggle {
+  margin-left: 46px;
+  font-size: 11.5px;
+  padding: 4px 10px;
+}
+
+.share-box {
+  margin: 6px 0 12px 46px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.share-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.share-meta {
+  font-size: 11px;
+  color: var(--dim);
+  margin-bottom: 8px;
+}
+
+.share-cookies {
+  color: var(--dim);
+  word-break: break-all;
+}
+
+.file-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.file-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 12px;
+  border-top: 1px dashed var(--line);
+}
+
+.file-row:first-child {
+  border-top: 0;
+}
+
+.file-icon {
+  color: var(--dim);
+  width: 10px;
+  flex: 0 0 10px;
+}
+
+.file-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-size {
+  color: var(--dim);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
 .scan-btn {
   width: 100%;
   height: 38px;

@@ -13,6 +13,7 @@ use tauri::Manager;
 
 mod cookies;
 mod pan_login;
+mod quark;
 
 #[tauri::command]
 fn app_version() -> String {
@@ -37,7 +38,9 @@ pub fn run() {
             cookies::import_browser_cookies,
             pan_login::open_pan_login,
             pan_login::take_pan_cookie,
-            pan_login::close_pan_login
+            pan_login::close_pan_login,
+            quark::quark_share_token,
+            quark::quark_share_list
         ])
         .setup(|app| {
             // ── 托盘 ──
