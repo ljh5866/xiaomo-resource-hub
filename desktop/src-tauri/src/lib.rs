@@ -36,7 +36,6 @@ pub fn run() {
             cookies::scan_browsers,
             cookies::import_browser_cookies,
             pan_login::open_pan_login,
-            pan_login::submit_pan_cookie,
             pan_login::take_pan_cookie,
             pan_login::close_pan_login
         ])
