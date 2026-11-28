@@ -118,20 +118,23 @@ export async function waitPanDirect(
   return null;
 }
 
-/** 直链 → 下载到本地下载目录，返回保存路径 */
-export async function quarkDownload(url: string, fileName: string): Promise<string> {
+/** 直链 → 分片并发下载到本地下载目录，返回保存路径 */
+export async function quarkDownload(
+  url: string,
+  fileName: string,
+  conns = 8,
+): Promise<string> {
   const cookie = getPanCookie("quark") ?? "";
-  return invokeCmd<string>("quark_download_file", { url, fileName, cookie });
+  return invokeCmd<string>("pan_download_chunked", { url, fileName, cookie, conns });
 }
 
+export type DlTick = { got: number; total: number; done: number; chunks: number };
+
 /** 订阅下载进度（返回取消函数） */
-export async function onDownloadProgress(
-  cb: (got: number, total: number) => void,
-): Promise<() => void> {
+export async function onDownloadProgress(cb: (p: DlTick) => void): Promise<() => void> {
   const { listen } = await import("@tauri-apps/api/event");
-  const un = await listen<[number, number]>("pan-download", (e) => {
-    const [got, total] = e.payload ?? [0, 0];
-    cb(got, total);
+  const un = await listen<DlTick>("pan-download", (e) => {
+    if (e.payload) cb(e.payload);
   });
   return un;
 }

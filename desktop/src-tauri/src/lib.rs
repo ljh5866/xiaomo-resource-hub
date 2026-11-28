@@ -12,12 +12,25 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri::Manager;
 
 mod cookies;
+mod downloader;
 mod pan_login;
 mod quark;
 
 #[tauri::command]
-fn app_version() -> String {
+async fn app_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
+}
+
+/// 分片并发下载（比夸克官方的单连接快数倍）
+#[tauri::command]
+async fn pan_download_chunked(
+    app: tauri::AppHandle,
+    url: String,
+    file_name: String,
+    cookie: String,
+    conns: Option<u32>,
+) -> Result<String, String> {
+    downloader::download(app, url, file_name, cookie, conns.unwrap_or(8)).await
 }
 
 /// 前端标题栏用
@@ -33,6 +46,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             app_version,
+            pan_download_chunked,
             show_main,
             cookies::scan_browsers,
             cookies::import_browser_cookies,

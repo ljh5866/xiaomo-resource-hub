@@ -17,7 +17,15 @@ import { panWindowAlive, reopenPanWindow } from "../lib/pan";
  * 详情页里的「站内解析」：列出分享里的文件，支持转存 + 下载到本机。
  * 所有请求由本机 Rust 发出，cookie 不出这台电脑。
  */
-type RowState = { phase: "idle" | "queue" | "link" | "down"; got: number; total: number; done?: string; err?: string };
+type RowState = {
+  phase: "idle" | "queue" | "link" | "down";
+  got: number;
+  total: number;
+  chunks?: number;
+  doneParts?: number;
+  done?: string;
+  err?: string;
+};
 
 export function ShareBrowse({ url }: { url: string }) {
   const [state, setState] = useState<"idle" | "loading" | "ok" | "err">("idle");
@@ -29,11 +37,14 @@ export function ShareBrowse({ url }: { url: string }) {
   const unRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    void onDownloadProgress((got, total) => {
+    void onDownloadProgress((p) => {
       setRows((prev) => {
         const next: Record<string, RowState> = {};
         for (const [k, v] of Object.entries(prev)) {
-          next[k] = v.phase === "down" ? { ...v, got, total } : v;
+          next[k] =
+            v.phase === "down"
+              ? { ...v, got: p.got, total: p.total || v.total, chunks: p.chunks, doneParts: p.done }
+              : v;
         }
         return next;
       });
@@ -141,7 +152,8 @@ export function ShareBrowse({ url }: { url: string }) {
                 <span className="file-prog">
                   {r.phase === "queue" && "转存中…"}
                   {r.phase === "link" && "取链中…"}
-                  {r.phase === "down" && `${pct}%`}
+                  {r.phase === "down" &&
+                    `${pct}%${r.chunks ? ` · ${r.doneParts ?? 0}/${r.chunks} 片` : ""}`}
                 </span>
               ) : f.is_dir ? null : (
                 <button className="btn file-btn" onClick={() => void download(f)}>
