@@ -295,8 +295,7 @@ pub async fn open_pan_login(app: tauri::AppHandle, url: String, title: String) -
         .inner_size(520.0, 780.0)
         .min_inner_size(420.0, 600.0)
         .on_page_load(move |webview, _payload| {
-            let _ = webview.eval(&build_injector(port));
-            // 若有挂起的下载任务，此刻页面已就绪，执行它
+            // 页面就绪时若有挂起的下载任务，立刻执行
             let pending = PENDING.lock().ok().and_then(|mut p| p.take());
             if let Some(task) = pending {
                 let _ = webview.eval(&build_task_js(port, &task));
@@ -388,118 +387,6 @@ pub async fn pan_web_direct(
 /// 注入到页面里的脚本，两个职责：
 ///  ① 右上角浮层「完成登录」→ 把 cookie 导航回本地
 ///  ② 页面 hash 带 `#xm-dl=<base64>` 时，执行「转存 → 轮询 → 取直链」→ 导航回本地
-fn build_injector(port: u16) -> String {
-    format!(
-        r#"
-(() => {{
-  const PORT = {port};
-
-  // ── ① 登录浮层 ──
-  if (!document.getElementById('xm-pan-finish')) {{
-    const bar = document.createElement('div');
-    bar.id = 'xm-pan-finish';
-    bar.style.cssText = [
-      'position:fixed','top:10px','right:10px','z-index:2147483647',
-      'background:#111','color:#fff','border-radius:8px','padding:8px 12px',
-      'font:13px/1.4 system-ui,sans-serif','box-shadow:0 4px 18px rgba(0,0,0,.35)',
-      'display:flex','gap:8px','align-items:center'
-    ].join(';');
-    const hint = document.createElement('span');
-    hint.textContent = '登录后点这里';
-    hint.style.cssText = 'opacity:.75';
-    const ok = document.createElement('button');
-    ok.textContent = '完成登录';
-    ok.style.cssText = 'border:0;border-radius:6px;padding:6px 12px;background:#1a56db;color:#fff;font:inherit;cursor:pointer';
-    ok.onclick = () => {{
-      const cookie = document.cookie || '';
-      const n = cookie.split(';').filter(Boolean).length;
-      ok.textContent = '提交中…';
-      location.href = 'http://127.0.0.1:' + PORT + '/c?d=' + encodeURIComponent(location.host + '\n' + cookie);
-      setTimeout(() => {{ ok.textContent = '已提交 ' + n + ' 项'; ok.style.background = '#2f8f5b'; }}, 300);
-    }};
-    bar.appendChild(hint);
-    bar.appendChild(ok);
-    document.documentElement.appendChild(bar);
-  }}
-
-  // ── ② 下载任务执行器（由 build_task_js 写入 window.__xmTask 后调用）──
-  window.__xmRun = async () => {{
-    const cfg = window.__xmTask;
-    if (!cfg) return;
-
-    const fail = (msg) => {{
-      location.href = 'http://127.0.0.1:' + PORT + '/e?m=' + encodeURIComponent(String(msg).slice(0, 300));
-    }};
-
-    try {{
-      const API = 'https://drive-pc.quark.cn';
-    const Q = 'pr=ucpro&fr=pc&uc_param_str=';
-    const jpost = async (path, extra, body) => {{
-      const r = await fetch(API + path + '?' + Q + (extra || ''), {{
-        method: 'POST',
-        headers: {{ 'content-type': 'application/json' }},
-        credentials: 'include',
-        body: JSON.stringify(body),
-      }});
-      const t = await r.text();
-      try {{ return JSON.parse(t); }} catch (e) {{ throw new Error('接口返回非 JSON: ' + t.slice(0, 80)); }}
-    }};
-    const jget = async (path, extra) => {{
-      const r = await fetch(API + path + '?' + Q + (extra || ''), {{ credentials: 'include' }});
-      return r.json();
-    }};
-
-    // ① 转存
-    try {{
-      const sv = await jpost('/1/clouddrive/share/sharepage/save', '', {{
-        fid_list: [cfg.f],
-        fid_token_list: [cfg.k],
-        to_pdir_fid: '0',
-        pwd_id: cfg.s,
-        stoken: cfg.t,
-        pdir_fid: '0',
-        scene: 'link',
-      }});
-      if (!sv || sv.status !== 200 || !sv.data) {{
-        throw new Error('转存失败：' + (sv && sv.message) + ' [' + (sv && sv.code) + ']');
-      }}
-      const taskId = sv.data.task_id;
-
-      // ② 轮询任务
-      let savedFid = null;
-      for (let i = 0; i < 20; i++) {{
-        await new Promise((r) => setTimeout(r, 500));
-        const t = await jget('/1/clouddrive/task', '&task_id=' + encodeURIComponent(taskId) + '&retry_index=' + i);
-        if (t && t.status === 200 && t.data && Number(t.data.status) === 2) {{
-          const ids = (t.data.save_as && t.data.save_as.save_as_top_fids) || [];
-          savedFid = ids[0];
-          break;
-        }}
-      }}
-      if (!savedFid) throw new Error('转存超时（夸克排队中）');
-
-      // ③ 取直链
-      const dl = await jpost('/1/clouddrive/file/download', '&sys=win32&ve=3.23.2', {{ fids: [savedFid] }});
-      if (!dl || dl.status !== 200) {{
-        throw new Error('取链失败：' + (dl && dl.message) + ' [' + (dl && dl.code) + ']');
-      }}
-      const rows = Array.isArray(dl.data) ? dl.data : (dl.data && dl.data.list) || [];
-      const row = rows[0];
-      if (!row || !row.download_url) throw new Error('夸克没返回下载地址（可能被限速/风控）');
-
-      location.href = 'http://127.0.0.1:' + PORT + '/d'
-        + '?u=' + encodeURIComponent(row.download_url)
-        + '&n=' + encodeURIComponent(row.file_name || cfg.n)
-        + '&f=' + encodeURIComponent(savedFid);
-    }} catch (e) {{
-      fail(e && e.message ? e.message : e);
-    }}
-  }};
-}})();
-"#,
-        port = port
-    )
-}
 
 /// 写入任务参数并执行 —— **完全自包含**，不依赖 `build_injector` 先跑过。
 /// 只要求一件事：当前页面在夸克域上（让 fetch 自动带 httpOnly cookie）。
@@ -534,7 +421,29 @@ fn build_task_js(port: u16, task: &Task) -> String {
     }};
 
     try {{
-      // ① 转存
+      // ── 路线 A：直接从分享取链，不转存 ──
+      // 夸克 Web 端下分享文件走的就是这个接口，而且不会在用户网盘留残留。
+      try {{
+        const direct = await jpost('/1/clouddrive/share/sharepage/download', '', {{
+          fid_list: [cfg.f],
+          fid_token_list: [cfg.k],
+          pwd_id: cfg.s,
+          stoken: cfg.t,
+        }});
+        if (direct && direct.status === 200 && direct.data) {{
+          const rows = Array.isArray(direct.data) ? direct.data : (direct.data.list || []);
+          const row = rows[0];
+          if (row && row.download_url) {{
+            location.href = 'http://127.0.0.1:' + PORT + '/d'
+              + '?u=' + encodeURIComponent(row.download_url)
+              + '&n=' + encodeURIComponent(row.file_name || cfg.n)
+              + '&f=';
+            return;
+          }}
+        }}
+      }} catch (e) {{ /* 走回退 */ }}
+
+      // ── 路线 B：转存到自己网盘，再取链 ──
       const sv = await jpost('/1/clouddrive/share/sharepage/save', '', {{
         fid_list: [cfg.f],
         fid_token_list: [cfg.k],
