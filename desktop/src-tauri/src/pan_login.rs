@@ -200,10 +200,12 @@ pub async fn open_pan_login(app: tauri::AppHandle, url: String, title: String) -
     let port = ensure_server();
     let parsed: tauri::Url = url.parse().map_err(|_| format!("地址不对：{url}"))?;
 
+    // 窗口已存在：**必须重新导航回网盘页**。
+    // 上次「完成登录」会把页面导航到 127.0.0.1（本地回调），只 show() 的话就是一张白纸。
     if let Some(w) = app.get_webview_window("pan-login") {
+        let _ = w.navigate(parsed);
         let _ = w.show();
         let _ = w.set_focus();
-        let _ = w.eval(&build_overlay(port));
         return Ok(());
     }
 
@@ -258,6 +260,18 @@ pub async fn pan_web_direct(
     if let Ok(mut slot) = DL.lock() {
         *slot = None;
     }
+
+    // 关键：页面必须停在网盘域上，否则 fetch 过去会被 CORS 拦（origin 是 127.0.0.1）
+    let cur = win.url().map(|u| u.to_string()).unwrap_or_default();
+    if !cur.contains("quark.cn") {
+        let target: tauri::Url = "https://pan.quark.cn/"
+            .parse()
+            .map_err(|_| "地址解析失败".to_string())?;
+        win.navigate(target).map_err(|e| format!("导航失败：{e}"))?;
+        // 等页面加载完（on_page_load 会重新注入浮层）
+        tokio::time::sleep(std::time::Duration::from_millis(3200)).await;
+    }
+
     let _ = win.show();
 
     let js = build_download_js(port, &share_id, &stoken, &fid, &fid_token, &file_name);

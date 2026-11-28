@@ -85,12 +85,13 @@ export function ShareBrowse({ url }: { url: string }) {
   const download = async (f: PanFile) => {
     setRow(f.fid, { phase: "queue", got: 0, total: f.size, err: undefined });
     try {
-      // 转存/取链必须在网盘页面里做（httpOnly cookie 拿不出来）
+      // 转存/取链必须在网盘页面里做（httpOnly cookie 拿不出来）。
+      // 窗口没开就自动开一个，用户在里面登录一次即可；开着的话 Rust 侧会确保它导航回夸克域。
       if (!(await panWindowAlive())) {
         await reopenPanWindow("quark");
         setRow(f.fid, {
           phase: "idle",
-          err: "需要网盘窗口保持打开 —— 已帮你重新打开，登录后再点下载",
+          err: "已打开网盘窗口 —— 登录后点它右上角「完成登录」，再点一次下载",
         });
         return;
       }
