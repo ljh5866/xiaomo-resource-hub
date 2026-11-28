@@ -103,47 +103,28 @@ export const PAN_LOGIN_URL: Record<PanProvider, string> = {
 };
 
 /**
- * 打开内嵌登录窗口，等用户在窗口里扫码登录后点「完成登录」。
- * 返回拿到的 cookie（失败返回 null）。
+ * 打开内嵌登录窗口（**只打开，不等待**）。
+ *
+ * 现在的架构变了：cookie 不导出（WebView2 v20 加密读不出），
+ * 转存/取链都在这个窗口的页面里执行，所以只要窗口开着并登录过就行。
  */
-export async function openPanLogin(
-  provider: PanProvider,
-  timeoutMs = 5 * 60_000,
-): Promise<string | null> {
-  if (!IN_TAURI) return null;
-  const { invoke } = await import("@tauri-apps/api/core");
-
-  await invoke("open_pan_login", {
-    url: PAN_LOGIN_URL[provider],
-    title: `登录 ${PAN_NAMES[provider]}`,
-  });
-
-  const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
-    await new Promise((r) => setTimeout(r, 1200));
-    const picked = await invoke<{ cookie: string; host: string } | null>("take_pan_cookie");
-    if (picked?.cookie) {
-      // 关键：只隐藏不关闭 —— 关掉就丢登录态，后续转存/取链还要用这个页面
-      await invoke("hide_pan_login");
-      return picked.cookie;
-    }
-  }
-  return null;
-}
-
-/** 网盘窗口是否还活着（活着才有 httpOnly 登录态） */
-export async function panWindowAlive(): Promise<boolean> {
-  if (!IN_TAURI) return false;
-  const { invoke } = await import("@tauri-apps/api/core");
-  return invoke<boolean>("pan_window_alive");
-}
-
-/** 让应用里开着的网盘窗口重新显形（用户手动关了就只能重新登录） */
-export async function reopenPanWindow(provider: PanProvider): Promise<void> {
+export async function openPanLogin(provider: PanProvider): Promise<void> {
   if (!IN_TAURI) return;
   const { invoke } = await import("@tauri-apps/api/core");
   await invoke("open_pan_login", {
     url: PAN_LOGIN_URL[provider],
     title: `登录 ${PAN_NAMES[provider]}`,
   });
+}
+
+/** 网盘窗口是否还开着（开着 = 随时能解析下载） */
+export async function panWindowAlive(): Promise<boolean> {
+  if (!IN_TAURI) return false;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<boolean>("pan_window_alive");
+}
+
+/** 把已开着的窗口叫到前面来 */
+export async function focusPanWindow(provider: PanProvider): Promise<void> {
+  await openPanLogin(provider);
 }

@@ -9,12 +9,12 @@ import {
   inTauri,
   looksLikePanCookie,
   openPanLogin,
+  panWindowAlive,
   savePanCookie,
   scanBrowsers,
   type BrowserInfo,
   type PanProvider,
 } from "../lib/pan";
-import { readPanCookie } from "../lib/quark";
 
 /**
  * 网盘登录：先试「从浏览器一键导入」，读不到（Chrome 127+ 的 v20 加密）再手动粘贴。
@@ -30,11 +30,13 @@ export function PanBind({ onClose }: { onClose: () => void }) {
   const [err, setErr] = useState<string | null>(null);
   const [manual, setManual] = useState("");
   const [bound, setBound] = useState<string | null>(null);
+  const [alive, setAlive] = useState(false);
 
   useEffect(() => {
     setBound(getPanCookie(provider));
     setMsg(null);
     setErr(null);
+    void panWindowAlive().then(setAlive);
   }, [provider]);
 
   useEffect(() => {
@@ -117,8 +119,13 @@ export function PanBind({ onClose }: { onClose: () => void }) {
           </div>
         ) : (
           <>
+            {alive && (
+              <p className="pan-ok" style={{ marginBottom: 10 }}>
+                网盘窗口开着 ✓ 直接去资源页点「下载」即可
+              </p>
+            )}
             <div className="pan-section">
-              <div className="pan-label">扫码登录（推荐）</div>
+              <div className="pan-label">打开网盘窗口登录（推荐）</div>
               <button
                 className="btn scan-btn"
                 disabled={busy || !inTauri()}
@@ -127,18 +134,10 @@ export function PanBind({ onClose }: { onClose: () => void }) {
                   setErr(null);
                   setMsg(null);
                   try {
-                    const cookie = await openPanLogin(provider);
-                    if (!cookie) {
-                      setErr("没有拿到 Cookie —— 确认已在窗口里扫码并点了「完成登录」");
-                      return;
-                    }
-                    savePanCookie(provider, cookie);
-                    setBound(cookie);
-                    const ok = looksLikePanCookie(provider, cookie);
+                    await openPanLogin(provider);
+                    setAlive(true);
                     setMsg(
-                      ok
-                        ? `已登录 ${PAN_NAMES[provider]}，共 ${cookie.split(";").length} 项 Cookie`
-                        : "已保存，但没读到网盘的关键登录字段，可能还需要在该窗口里再点一次「完成登录」",
+                      "窗口已打开 —— 在里面登录好之后，直接去资源页点「下载」就行，不用回来做别的。",
                     );
                   } catch (e) {
                     setErr(e instanceof Error ? e.message : String(e));
@@ -147,36 +146,28 @@ export function PanBind({ onClose }: { onClose: () => void }) {
                   }
                 }}
               >
-                {busy ? "等待扫码…" : `打开登录窗口 · ${PAN_NAMES[provider]}`}
+                {busy ? "打开中…" : `打开登录窗口 · ${PAN_NAMES[provider]}`}
               </button>
 
               <button
                 className="btn btn-ghost scan-btn"
                 style={{ marginTop: 8 }}
-                disabled={busy || !inTauri()}
                 onClick={async () => {
-                  setBusy(true);
-                  setErr(null);
-                  setMsg(null);
-                  try {
-                    // 直接从 WebView2 的 cookie 库读（能拿到 httpOnly 的 __pus）
-                    const cookie = await readPanCookie(provider);
-                    savePanCookie(provider, cookie);
-                    setBound(cookie);
-                    setMsg(`已从登录窗口读到 ${cookie.split(";").length} 项 Cookie`);
-                  } catch (e) {
-                    setErr(typeof e === "string" ? e : e instanceof Error ? e.message : "读取失败");
-                  } finally {
-                    setBusy(false);
-                  }
+                  const ok = await panWindowAlive();
+                  setAlive(ok);
+                  setMsg(
+                    ok
+                      ? "网盘窗口开着 ✓ 直接去资源页点「下载」即可"
+                      : "网盘窗口没开 —— 点上面的按钮打开它并登录一次",
+                  );
                 }}
               >
-                已在窗口里登录好了 → 读取登录态
+                检查窗口是否就绪
               </button>
 
               <p className="pan-hint">
-                点第一个按钮开窗口扫码；登录完**回来点第二个按钮**读取登录态。
-                Cookie 直接从浏览内核读，不上传服务器。
+                登录窗口**不要关**：它是唯一能带上 httpOnly 登录态的容器，转存和取链都在里面完成。
+                关掉也能重新打开，登录状态会保留。
               </p>
             </div>
 
