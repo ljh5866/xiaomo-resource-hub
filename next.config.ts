@@ -17,20 +17,6 @@ const nextConfig: NextConfig = {
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
         ],
       },
-      {
-        /**
-         * 桌面端（Tauri WebView）的 origin 是 tauri://localhost，
-         * 调这些只读接口必然跨域，所以单独放开。
-         * 只开了 GET + 只读接口，写接口不加。
-         */
-        source: "/api/app/:path*",
-        headers: [
-          { key: "Access-Control-Allow-Origin", value: "*" },
-          { key: "Access-Control-Allow-Methods", value: "GET, POST, DELETE, OPTIONS" },
-          { key: "Access-Control-Allow-Headers", value: "content-type, authorization" },
-          { key: "Access-Control-Max-Age", value: "86400" },
-        ],
-      },
     ];
   },
 };
