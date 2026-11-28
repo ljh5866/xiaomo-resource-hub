@@ -40,7 +40,9 @@ pub fn run() {
             pan_login::take_pan_cookie,
             pan_login::close_pan_login,
             quark::quark_share_token,
-            quark::quark_share_list
+            quark::quark_share_list,
+            quark::quark_share_save,
+            quark::quark_share_direct
         ])
         .setup(|app| {
             // ── 托盘 ──

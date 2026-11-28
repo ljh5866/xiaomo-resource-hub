@@ -73,11 +73,53 @@ export async function quarkList(
 export async function resolveQuarkShare(url: string): Promise<{
   shareId: string;
   passcode: string;
+  stoken: string;
   listing: ShareListing;
 }> {
   const parsed = parseQuarkUrl(url);
   if (!parsed) throw new Error("这不是夸克分享链接");
   const stoken = await quarkToken(parsed.shareId, parsed.passcode);
   const listing = await quarkList(parsed.shareId, stoken);
-  return { ...parsed, listing };
+  return { ...parsed, stoken, listing };
+}
+
+export type DirectLink = { url: string; file_name: string; size: number };
+
+/** 转存 + 取直链 */
+export async function quarkDirect(
+  shareId: string,
+  stoken: string,
+  file: PanFile,
+): Promise<DirectLink> {
+  const cookie = getPanCookie("quark") ?? "";
+  return invokeCmd<DirectLink>("quark_share_direct", {
+    shareId,
+    stoken,
+    fid: file.fid,
+    fidToken: file.fid_token,
+    fileName: file.name,
+    size: file.size,
+    cookie,
+  });
+}
+
+/** 直链 → 下载到本地下载目录，返回保存路径 */
+export async function quarkDownload(
+  url: string,
+  fileName: string,
+): Promise<string> {
+  const cookie = getPanCookie("quark") ?? "";
+  return invokeCmd<string>("quark_download_file", { url, fileName, cookie });
+}
+
+/** 订阅下载进度（返回取消函数） */
+export async function onDownloadProgress(
+  cb: (got: number, total: number) => void,
+): Promise<() => void> {
+  const { listen } = await import("@tauri-apps/api/event");
+  const un = await listen<[number, number]>("pan-download", (e) => {
+    const [got, total] = e.payload ?? [0, 0];
+    cb(got, total);
+  });
+  return un;
 }

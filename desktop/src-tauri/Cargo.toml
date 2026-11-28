@@ -19,7 +19,9 @@ tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rusqlite = { version = "0.32", features = ["bundled"] }
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "charset"] }
+futures-util = "0.3"
+tokio = { version = "1", features = ["time", "fs", "io-util"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "charset", "stream"] }
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["dpapi", "winbase", "wincrypt", "minwindef"] }
