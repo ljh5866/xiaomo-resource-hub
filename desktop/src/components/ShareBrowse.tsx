@@ -4,12 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import {
   fmtSize,
   onDownloadProgress,
-  quarkDirect,
+  panWebDirect,
   quarkDownload,
   resolveQuarkShare,
+  waitPanDirect,
   type PanFile,
   type ShareListing,
 } from "../lib/quark";
+import { panWindowAlive, reopenPanWindow } from "../lib/pan";
 
 /**
  * 详情页里的「站内解析」：列出分享里的文件，支持转存 + 下载到本机。
@@ -64,10 +66,27 @@ export function ShareBrowse({ url }: { url: string }) {
   const download = async (f: PanFile) => {
     setRow(f.fid, { phase: "queue", got: 0, total: f.size, err: undefined });
     try {
+      // 转存/取链必须在网盘页面里做（httpOnly cookie 拿不出来）
+      if (!(await panWindowAlive())) {
+        await reopenPanWindow("quark");
+        setRow(f.fid, {
+          phase: "idle",
+          err: "需要网盘窗口保持打开 —— 已帮你重新打开，登录后再点下载",
+        });
+        return;
+      }
+
       setRow(f.fid, { phase: "link" });
-      const d = await quarkDirect(shareId, stoken, f);
-      setRow(f.fid, { phase: "down", total: d.size || f.size });
-      const path = await quarkDownload(d.url, d.file_name);
+      await panWebDirect(shareId, stoken, f);
+
+      const d = await waitPanDirect(75_000);
+      if (!d) {
+        setRow(f.fid, { phase: "idle", err: "没等到夸克返回直链（看网盘窗口左下角的红字）" });
+        return;
+      }
+
+      setRow(f.fid, { phase: "down", total: f.size });
+      const path = await quarkDownload(d.url, d.name || f.name);
       setRow(f.fid, { phase: "idle", done: path });
     } catch (e) {
       setRow(f.fid, {

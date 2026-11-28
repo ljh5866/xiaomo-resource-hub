@@ -1,12 +1,13 @@
-//! 内嵌网盘登录窗口。
+//! 内嵌网盘窗口：登录 + 在页面上下文里执行网盘操作。
 //!
-//! 做法：开一个独立 WebviewWindow 打开网盘站点，用户在里面扫码登录。
-//! 登录完点页面右上角注入的「完成登录」浮层，浮层把 `document.cookie`
-//! **POST 到本机一个临时 HTTP 端口**（127.0.0.1），Rust 侧收到后存槽位，前端取走。
+//! 为什么操作必须在页面里做：
+//! 夸克的 `__pus` 是 httpOnly，`document.cookie` 读不到（实测只拿到 ctoken/__puus）。
+//! 用它调 `sharepage/save`（转存）会返回 `require login [guest] (code=31001)`。
+//! 而页面内 fetch 同源/跨子域都会自动带 httpOnly cookie —— 实测 `pan.quark.cn` 页面
+//! fetch `drive-pc.quark.cn` 返回 200，CORS 是通的。
 //!
-//! 为什么不用 Tauri IPC：远程页面（pan.quark.cn）里 `window.__TAURI_INTERNALS__`
-//! 拿不到，即使配了 capabilities 的 remote 也不注入（实测 2026-11-27：浮层点了报「读取失败」）。
-//! 本机回环 HTTP 不受这个限制，且不需要给远程页面开放任何 Tauri 权限。
+//! 结果回传：页面执行完 → 导航到 `http://127.0.0.1:<port>/d?u=<直链>&n=<文件名>`
+//! （https 页面 fetch http://127.0.0.1 会被混合内容拦掉，导航不会）。
 
 use std::io::{Read, Write};
 use std::net::TcpListener;
@@ -15,8 +16,10 @@ use std::sync::{Mutex, OnceLock};
 use serde::Serialize;
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
-/// 浮层回传的 cookie 暂存：`host\u{1}cookie`
+/// 登录回传：`host\u{1}cookie`
 static PICKED: Mutex<Option<String>> = Mutex::new(None);
+/// 直链回传：(url, file_name)
+static DL: Mutex<Option<(String, String)>> = Mutex::new(None);
 static PORT: OnceLock<u16> = OnceLock::new();
 
 #[derive(Serialize)]
@@ -25,13 +28,12 @@ pub struct PickedCookie {
     pub host: String,
 }
 
-fn store(host: &str, cookie: &str) {
-    if let Ok(mut slot) = PICKED.lock() {
-        *slot = Some(format!("{host}\u{1}{cookie}"));
-    }
+#[derive(Serialize)]
+pub struct DirectResult {
+    pub url: String,
+    pub name: String,
 }
 
-/// 启动回环回调服务（只监听 127.0.0.1，随机端口，进程退出即失效）
 fn ensure_server() -> u16 {
     *PORT.get_or_init(|| {
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind 127.0.0.1");
@@ -42,9 +44,8 @@ fn ensure_server() -> u16 {
                 let mut s = stream;
                 let _ = s.set_read_timeout(Some(std::time::Duration::from_millis(1200)));
 
-                let mut buf = vec![0u8; 16384];
+                let mut buf = vec![0u8; 32768];
                 let mut total = 0usize;
-                // 导航过来的是 GET，读到一个完整请求头就够了
                 loop {
                     match s.read(&mut buf[total..]) {
                         Ok(0) => break,
@@ -58,16 +59,25 @@ fn ensure_server() -> u16 {
                     }
                 }
 
-                if let Some(idx) = find_sub(&buf[..total], b"\r\n\r\n") {
-                    let head = String::from_utf8_lossy(&buf[..idx]).to_string();
-                    // 取第一行：GET /c?d=<urlencoded> HTTP/1.1
-                    if let Some(line) = head.lines().next() {
-                        if let Some(q) = line.split("?d=").nth(1) {
-                            let raw = q.split(' ').next().unwrap_or("");
-                            let decoded = pct_decode(raw);
-                            if let Some((host, cookie)) = decoded.split_once('\n') {
+                let head = String::from_utf8_lossy(&buf[..total.min(buf.len())]).to_string();
+                if let Some(line) = head.lines().next() {
+                    // GET /d?u=...&n=...  → 直链
+                    if line.contains("GET /d?") {
+                        let u = query_param(line, "u");
+                        let n = query_param(line, "n");
+                        if let (Some(u), Some(n)) = (u, n) {
+                            if let Ok(mut slot) = DL.lock() {
+                                *slot = Some((u, n));
+                            }
+                        }
+                    } else if line.contains("GET /c?") {
+                        // GET /c?d=<host\ncookie>  → 登录 cookie
+                        if let Some(raw) = query_param(line, "d") {
+                            if let Some((host, cookie)) = raw.split_once('\n') {
                                 if !cookie.trim().is_empty() {
-                                    store(host.trim(), cookie.trim());
+                                    if let Ok(mut slot) = PICKED.lock() {
+                                        *slot = Some(format!("{}\u{1}{}", host.trim(), cookie.trim()));
+                                    }
                                 }
                             }
                         }
@@ -89,7 +99,19 @@ fn find_sub(hay: &[u8], needle: &[u8]) -> Option<usize> {
     hay.windows(needle.len()).position(|w| w == needle)
 }
 
-/// 极简 percent-decode（只要够解 cookie 里的 %XX 和 +）
+/// 从请求行里取 query 参数（percent-decode）
+fn query_param(line: &str, key: &str) -> Option<String> {
+    let q = line.split('?').nth(1)?.split(' ').next()?;
+    for pair in q.split('&') {
+        if let Some((k, v)) = pair.split_once('=') {
+            if k == key {
+                return Some(pct_decode(v));
+            }
+        }
+    }
+    None
+}
+
 fn pct_decode(s: &str) -> String {
     let b = s.as_bytes();
     let mut out: Vec<u8> = Vec::with_capacity(b.len());
@@ -108,7 +130,6 @@ fn pct_decode(s: &str) -> String {
     String::from_utf8_lossy(&out).to_string()
 }
 
-/// 前端轮询取结果；没有就返回 None
 #[tauri::command]
 pub fn take_pan_cookie() -> Option<PickedCookie> {
     let mut slot = PICKED.lock().ok()?;
@@ -120,14 +141,28 @@ pub fn take_pan_cookie() -> Option<PickedCookie> {
     })
 }
 
-/// 打开网盘登录窗口
+#[tauri::command]
+pub fn take_pan_direct() -> Option<DirectResult> {
+    let mut slot = DL.lock().ok()?;
+    let (url, name) = slot.take()?;
+    Some(DirectResult { url, name })
+}
+
+/// 登录窗口是否还活着（活着的窗口才有登录态）
+#[tauri::command]
+pub fn pan_window_alive(app: tauri::AppHandle) -> bool {
+    app.get_webview_window("pan-login").is_some()
+}
+
 #[tauri::command]
 pub async fn open_pan_login(app: tauri::AppHandle, url: String, title: String) -> Result<(), String> {
     let port = ensure_server();
     let parsed: tauri::Url = url.parse().map_err(|_| format!("地址不对：{url}"))?;
 
     if let Some(w) = app.get_webview_window("pan-login") {
+        let _ = w.show();
         let _ = w.set_focus();
+        let _ = w.eval(&build_overlay(port));
         return Ok(());
     }
 
@@ -149,7 +184,14 @@ pub async fn open_pan_login(app: tauri::AppHandle, url: String, title: String) -
     Ok(())
 }
 
-/// 关掉登录窗口（取到 cookie 后前端调用）
+/// 只隐藏，不销毁 —— 销毁就丢登录态
+#[tauri::command]
+pub fn hide_pan_login(app: tauri::AppHandle) {
+    if let Some(w) = app.get_webview_window("pan-login") {
+        let _ = w.hide();
+    }
+}
+
 #[tauri::command]
 pub fn close_pan_login(app: tauri::AppHandle) {
     if let Some(w) = app.get_webview_window("pan-login") {
@@ -157,7 +199,120 @@ pub fn close_pan_login(app: tauri::AppHandle) {
     }
 }
 
-/// 注入到页面里的浮层：点按钮 → 把 cookie POST 到本机端口
+/// 在网盘窗口的页面里执行「转存 → 轮询任务 → 取直链」，结果导航回本地
+#[tauri::command]
+pub async fn pan_web_direct(
+    app: tauri::AppHandle,
+    share_id: String,
+    stoken: String,
+    fid: String,
+    fid_token: String,
+    file_name: String,
+) -> Result<(), String> {
+    let port = ensure_server();
+    let win = app
+        .get_webview_window("pan-login")
+        .ok_or_else(|| "网盘窗口已关闭 —— 请先在侧栏「网盘登录」重新打开并登录".to_string())?;
+
+    if let Ok(mut slot) = DL.lock() {
+        *slot = None;
+    }
+    let _ = win.show();
+
+    let js = build_download_js(port, &share_id, &stoken, &fid, &fid_token, &file_name);
+    win.eval(&js).map_err(|e| format!("注入失败：{e}"))?;
+    Ok(())
+}
+
+/// 页面里执行的脚本：转存 → 轮询 → 取直链 → 导航回本地端口
+fn build_download_js(
+    port: u16,
+    share_id: &str,
+    stoken: &str,
+    fid: &str,
+    fid_token: &str,
+    file_name: &str,
+) -> String {
+    // 用 serde_json 做字符串转义，避免文件名里的引号把 JS 弄坏
+    let j = |s: &str| serde_json::to_string(s).unwrap_or_else(|_| "\"\"".into());
+
+    format!(
+        r#"(async () => {{
+  const API = 'https://drive-pc.quark.cn';
+  const Q = 'pr=ucpro&fr=pc&uc_param_str=';
+  const done = (u, n) => {{
+    location.href = 'http://127.0.0.1:{port}/d?u=' + encodeURIComponent(u) + '&n=' + encodeURIComponent(n);
+  }};
+  const fail = (m) => {{
+    const d = document.createElement('div');
+    d.textContent = '下载失败：' + m;
+    d.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:2147483647;background:#c0392b;color:#fff;padding:8px 12px;border-radius:8px;font:12px system-ui';
+    document.body.appendChild(d);
+    setTimeout(() => d.remove(), 8000);
+  }};
+  try {{
+    const jpost = async (path, extra, body) => {{
+      const r = await fetch(API + path + '?' + Q + (extra || ''), {{
+        method: 'POST',
+        headers: {{ 'content-type': 'application/json' }},
+        credentials: 'include',
+        body: JSON.stringify(body),
+      }});
+      return r.json();
+    }};
+    const jget = async (path, extra) => {{
+      const r = await fetch(API + path + '?' + Q + (extra || ''), {{ credentials: 'include' }});
+      return r.json();
+    }};
+
+    // ① 转存
+    const sv = await jpost('/1/clouddrive/share/sharepage/save', '', {{
+      fid_list: [{fid_j}],
+      fid_token_list: [{tok_j}],
+      to_pdir_fid: '0',
+      pwd_id: {sid_j},
+      stoken: {stk_j},
+      pdir_fid: '0',
+      scene: 'link',
+    }});
+    if (!sv || sv.status !== 200 || !sv.data) throw new Error('转存：' + (sv && sv.message) + ' [' + (sv && sv.code) + ']');
+    const taskId = sv.data.task_id;
+
+    // ② 轮询任务
+    let savedFid = null;
+    for (let i = 0; i < 20; i++) {{
+      await new Promise((r) => setTimeout(r, 500));
+      const t = await jget('/1/clouddrive/task', '&task_id=' + encodeURIComponent(taskId) + '&retry_index=' + i);
+      if (t && t.status === 200 && t.data && Number(t.data.status) === 2) {{
+        const ids = (t.data.save_as && t.data.save_as.save_as_top_fids) || [];
+        savedFid = ids[0];
+        break;
+      }}
+    }}
+    if (!savedFid) throw new Error('转存超时（夸克排队中）');
+
+    // ③ 取直链
+    const dl = await jpost('/1/clouddrive/file/download', '&sys=win32&ve=3.23.2', {{ fids: [savedFid] }});
+    if (!dl || dl.status !== 200) throw new Error('取链：' + (dl && dl.message) + ' [' + (dl && dl.code) + ']');
+    const rows = Array.isArray(dl.data) ? dl.data : (dl.data && dl.data.list) || [];
+    const row = rows[0];
+    if (!row || !row.download_url) throw new Error('夸克没返回下载地址（可能被限速/风控）');
+
+    done(row.download_url, row.file_name || {name_j});
+  }} catch (e) {{
+    fail(String(e && e.message ? e.message : e));
+  }}
+}})();"#,
+        port = port,
+        fid_j = j(fid),
+        tok_j = j(fid_token),
+        sid_j = j(share_id),
+        stk_j = j(stoken),
+        name_j = j(file_name),
+    )
+}
+
+/// 注入到页面里的浮层：点按钮 → 把 cookie 导航回本地端口
 fn build_overlay(port: u16) -> String {
     format!(
         r#"
@@ -172,20 +327,18 @@ fn build_overlay(port: u16) -> String {
     'display:flex','gap:8px','align-items:center'
   ].join(';');
   const hint = document.createElement('span');
-  hint.textContent = '扫码登录后点这里';
+  hint.textContent = '登录后点这里';
   hint.style.cssText = 'opacity:.75';
   const ok = document.createElement('button');
   ok.textContent = '完成登录';
   ok.style.cssText = 'border:0;border-radius:6px;padding:6px 12px;background:#1a56db;color:#fff;font:inherit;cursor:pointer';
   ok.onclick = () => {{
-    // 只能走「导航」：https 页面 fetch http://127.0.0.1 会被混合内容拦掉（实测）
     const cookie = document.cookie || '';
     const n = cookie.split(';').filter(Boolean).length;
     ok.textContent = '读取中…';
-    const payload = location.host + '\n' + cookie;
-    location.href = 'http://127.0.0.1:{port}/c?d=' + encodeURIComponent(payload);
+    location.href = 'http://127.0.0.1:{port}/c?d=' + encodeURIComponent(location.host + '\n' + cookie);
     setTimeout(() => {{
-      ok.textContent = '已提交 ' + n + ' 项，请回到主窗口';
+      ok.textContent = '已提交 ' + n + ' 项';
       ok.style.background = '#2f8f5b';
     }}, 300);
   }};

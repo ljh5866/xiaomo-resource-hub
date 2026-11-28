@@ -85,29 +85,41 @@ export async function resolveQuarkShare(url: string): Promise<{
 
 export type DirectLink = { url: string; file_name: string; size: number };
 
-/** 转存 + 取直链 */
-export async function quarkDirect(
+/**
+ * 转存 + 取直链 —— **在网盘窗口的页面里执行**。
+ * 因为夸克转存需要 httpOnly 的 `__pus`，页面外拿不到（会返回 require login [guest] 31001）。
+ */
+export async function panWebDirect(
   shareId: string,
   stoken: string,
   file: PanFile,
-): Promise<DirectLink> {
-  const cookie = getPanCookie("quark") ?? "";
-  return invokeCmd<DirectLink>("quark_share_direct", {
+): Promise<void> {
+  const { invoke } = await import("@tauri-apps/api/core");
+  await invoke("pan_web_direct", {
     shareId,
     stoken,
     fid: file.fid,
     fidToken: file.fid_token,
     fileName: file.name,
-    size: file.size,
-    cookie,
   });
 }
 
+/** 轮询页面回传的直链 */
+export async function waitPanDirect(
+  timeoutMs = 60_000,
+): Promise<{ url: string; name: string } | null> {
+  const { invoke } = await import("@tauri-apps/api/core");
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    await new Promise((r) => setTimeout(r, 900));
+    const r = await invoke<{ url: string; name: string } | null>("take_pan_direct");
+    if (r?.url) return r;
+  }
+  return null;
+}
+
 /** 直链 → 下载到本地下载目录，返回保存路径 */
-export async function quarkDownload(
-  url: string,
-  fileName: string,
-): Promise<string> {
+export async function quarkDownload(url: string, fileName: string): Promise<string> {
   const cookie = getPanCookie("quark") ?? "";
   return invokeCmd<string>("quark_download_file", { url, fileName, cookie });
 }

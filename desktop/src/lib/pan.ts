@@ -123,10 +123,27 @@ export async function openPanLogin(
     await new Promise((r) => setTimeout(r, 1200));
     const picked = await invoke<{ cookie: string; host: string } | null>("take_pan_cookie");
     if (picked?.cookie) {
-      await invoke("close_pan_login");
+      // 关键：只隐藏不关闭 —— 关掉就丢登录态，后续转存/取链还要用这个页面
+      await invoke("hide_pan_login");
       return picked.cookie;
     }
   }
-  await invoke("close_pan_login");
   return null;
+}
+
+/** 网盘窗口是否还活着（活着才有 httpOnly 登录态） */
+export async function panWindowAlive(): Promise<boolean> {
+  if (!IN_TAURI) return false;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<boolean>("pan_window_alive");
+}
+
+/** 让应用里开着的网盘窗口重新显形（用户手动关了就只能重新登录） */
+export async function reopenPanWindow(provider: PanProvider): Promise<void> {
+  if (!IN_TAURI) return;
+  const { invoke } = await import("@tauri-apps/api/core");
+  await invoke("open_pan_login", {
+    url: PAN_LOGIN_URL[provider],
+    title: `登录 ${PAN_NAMES[provider]}`,
+  });
 }
