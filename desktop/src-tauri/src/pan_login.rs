@@ -22,6 +22,17 @@ static PICKED: Mutex<Option<String>> = Mutex::new(None);
 static DL: Mutex<Option<(String, String, String)>> = Mutex::new(None);
 /// 页面里执行失败的原因
 static DL_ERR: Mutex<Option<String>> = Mutex::new(None);
+/// 待执行的下载任务：先存这里，导航过去，等 on_page_load 再执行
+static PENDING: Mutex<Option<Task>> = Mutex::new(None);
+
+#[derive(Clone, serde::Serialize)]
+pub struct Task {
+    pub s: String,
+    pub t: String,
+    pub f: String,
+    pub k: String,
+    pub n: String,
+}
 static PORT: OnceLock<u16> = OnceLock::new();
 
 #[derive(Serialize)]
@@ -245,6 +256,11 @@ pub async fn open_pan_login(app: tauri::AppHandle, url: String, title: String) -
         .min_inner_size(420.0, 600.0)
         .on_page_load(move |webview, _payload| {
             let _ = webview.eval(&build_injector(port));
+            // 若有挂起的下载任务，此刻页面已就绪，执行它
+            let pending = PENDING.lock().ok().and_then(|mut p| p.take());
+            if let Some(task) = pending {
+                let _ = webview.eval(&build_task_js(port, &task));
+            }
         })
         .build()
         .map_err(|e| format!("打不开窗口：{e}"))?;
@@ -270,9 +286,11 @@ pub fn close_pan_login(app: tauri::AppHandle) {
 
 /// 在网盘窗口里执行「转存 → 轮询 → 取直链」。
 ///
-/// 做法：把任务参数 base64 后放进 URL hash，**导航**过去让页面加载完自己执行。
-/// 不用 eval —— 之前 `navigate + sleep(3.2s) + eval` 的写法，页面没加载完就把脚本打在了旧文档上，
-/// 导航完成后脚本直接消失，表现就是「等不到直链」。
+/// 时序要点（踩过两次坑）：
+///  · 不能用 hash 传参 —— 夸克是 SPA，未知 hash 会被路由当成坏路径，直接出错误页；
+///  · 不能在 navigate 后 sleep 再 eval —— 页面没加载完，脚本打在旧文档上，导航完成就没了。
+/// 正确做法：任务存进 `PENDING`，导航到**纯** `https://pan.quark.cn/`，
+/// 等 `on_page_load`（页面真正就绪的回调）再把脚本打进去。
 #[tauri::command]
 pub async fn pan_web_direct(
     app: tauri::AppHandle,
@@ -293,28 +311,36 @@ pub async fn pan_web_direct(
         *e = None;
     }
 
-    let cfg = serde_json::json!({
-        "s": share_id,
-        "t": stoken,
-        "f": fid,
-        "k": fid_token,
-        "n": file_name,
-    });
-    let payload = b64(&cfg.to_string());
+    let task = Task {
+        s: share_id,
+        t: stoken,
+        f: fid,
+        k: fid_token,
+        n: file_name,
+    };
 
-    // 每次都重新导航：既保证页面在夸克域（fetch 不会被 CORS 拦），也让脚本在加载完后执行
-    let url = format!("https://pan.quark.cn/#xm-dl={payload}");
-    let target: tauri::Url = url.parse().map_err(|_| "地址解析失败".to_string())?;
+    let cur = win.url().map(|u| u.to_string()).unwrap_or_default();
+    let on_quark = cur.contains("quark.cn") && !cur.contains("127.0.0.1");
 
-    let _ = win.show();
-    win.navigate(target)
-        .map_err(|e| format!("导航失败：{e}"))?;
+    if on_quark {
+        // 页面已经在夸克域：直接执行（此刻文档已就绪）
+        let port = ensure_server();
+        let _ = win.show();
+        win.eval(&build_task_js(port, &task))
+            .map_err(|e| format!("注入失败：{e}"))?;
+    } else {
+        // 需要先导航：把任务挂起，交给 on_page_load
+        if let Ok(mut p) = PENDING.lock() {
+            *p = Some(task);
+        }
+        let target: tauri::Url = "https://pan.quark.cn/"
+            .parse()
+            .map_err(|_| "地址解析失败".to_string())?;
+        let _ = win.show();
+        win.navigate(target)
+            .map_err(|e| format!("导航失败：{e}"))?;
+    }
     Ok(())
-}
-
-fn b64(s: &str) -> String {
-    use base64::Engine;
-    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(s.as_bytes())
 }
 
 /// 页面里执行的脚本：转存 → 轮询 → 取直链 → 导航回本地端口
@@ -356,28 +382,17 @@ fn build_injector(port: u16) -> String {
     document.documentElement.appendChild(bar);
   }}
 
-  // ── ② 下载任务（页面加载完才执行，不依赖注入时机）──
-  const m = (location.hash || '').match(/xm-dl=([A-Za-z0-9_-]+)/);
-  if (!m) return;
+  // ── ② 下载任务执行器（由 build_task_js 写入 window.__xmTask 后调用）──
+  window.__xmRun = async () => {{
+    const cfg = window.__xmTask;
+    if (!cfg) return;
 
-  let cfg;
-  try {{
-    let b = m[1].replace(/-/g, '+').replace(/_/g, '/');
-    while (b.length % 4) b += '=';
-    cfg = JSON.parse(atob(b));
-  }} catch (e) {{
-    location.href = 'http://127.0.0.1:' + PORT + '/e?m=' + encodeURIComponent('参数解析失败');
-    return;
-  }}
-  // 清掉 hash，避免刷新重复执行
-  try {{ history.replaceState(null, '', location.pathname + location.search); }} catch (e) {{}}
+    const fail = (msg) => {{
+      location.href = 'http://127.0.0.1:' + PORT + '/e?m=' + encodeURIComponent(String(msg).slice(0, 300));
+    }};
 
-  const fail = (msg) => {{
-    location.href = 'http://127.0.0.1:' + PORT + '/e?m=' + encodeURIComponent(String(msg).slice(0, 300));
-  }};
-
-  (async () => {{
-    const API = 'https://drive-pc.quark.cn';
+    try {{
+      const API = 'https://drive-pc.quark.cn';
     const Q = 'pr=ucpro&fr=pc&uc_param_str=';
     const jpost = async (path, extra, body) => {{
       const r = await fetch(API + path + '?' + Q + (extra || ''), {{
@@ -394,8 +409,8 @@ fn build_injector(port: u16) -> String {
       return r.json();
     }};
 
+    // ① 转存
     try {{
-      // ① 转存
       const sv = await jpost('/1/clouddrive/share/sharepage/save', '', {{
         fid_list: [cfg.f],
         fid_token_list: [cfg.k],
@@ -439,9 +454,28 @@ fn build_injector(port: u16) -> String {
     }} catch (e) {{
       fail(e && e.message ? e.message : e);
     }}
-  }})();
+  }};
 }})();
 "#,
         port = port
+    )
+}
+
+/// 写入任务参数并触发执行（在 build_injector 之后调用）
+fn build_task_js(port: u16, task: &Task) -> String {
+    format!(
+        r#"
+(() => {{
+  const PORT = {port};
+  window.__xmTask = {cfg};
+  if (typeof window.__xmRun === 'function') {{
+    window.__xmRun();
+  }} else {{
+    location.href = 'http://127.0.0.1:' + PORT + '/e?m=' + encodeURIComponent('页面脚本未就绪');
+  }}
+}})();
+"#,
+        port = port,
+        cfg = serde_json::to_string(task).unwrap_or_else(|_| "null".into())
     )
 }
