@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use crate::cookies::decrypt_chromium;
 
 /// Tauri 的 WebView2 用户数据目录可能在 exe 旁边，也可能在 LOCALAPPDATA 下按产品名建。
-fn candidate_dbs() -> Vec<PathBuf> {
+pub fn candidate_dbs() -> Vec<PathBuf> {
     let mut out: Vec<PathBuf> = Vec::new();
 
     if let Ok(exe) = std::env::current_exe() {

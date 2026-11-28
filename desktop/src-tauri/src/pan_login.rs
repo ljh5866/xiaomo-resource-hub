@@ -316,6 +316,42 @@ pub fn hide_pan_login(app: tauri::AppHandle) {
     }
 }
 
+/// 关掉登录窗口并清空它的 cookie（换账号用）。
+///
+/// WebView2 的 cookie 是 v20 加密，**读不出值但可以整个删掉**：
+/// 删掉 Cookies 文件后重开窗口就是全新状态，可以换号扫码。
+#[tauri::command]
+pub async fn reset_pan_login(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(w) = app.get_webview_window("pan-login") {
+        let _ = w.close();
+    }
+    // 等 WebView2 释放文件锁
+    tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
+
+    let mut removed = 0;
+    for db in crate::webview_cookies::candidate_dbs() {
+        if std::fs::remove_file(&db).is_ok() {
+            removed += 1;
+        }
+        for suffix in ["-wal", "-shm", "-journal"] {
+            let p = std::path::PathBuf::from(format!("{}{suffix}", db.display()));
+            let _ = std::fs::remove_file(p);
+        }
+    }
+
+    if let Ok(mut slot) = PICKED.lock() {
+        *slot = None;
+    }
+    if let Ok(mut e) = DL_ERR.lock() {
+        *e = None;
+    }
+
+    if removed == 0 {
+        return Err("没找到可清理的 cookie 库（可能窗口没开过）".to_string());
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub fn close_pan_login(app: tauri::AppHandle) {
     if let Some(w) = app.get_webview_window("pan-login") {

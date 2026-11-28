@@ -165,6 +165,31 @@ export function PanBind({ onClose }: { onClose: () => void }) {
                 检查窗口是否就绪
               </button>
 
+              <button
+                className="btn btn-ghost scan-btn"
+                style={{ marginTop: 8, color: "var(--danger)" }}
+                onClick={async () => {
+                  if (!confirm("会关掉登录窗口并清空其中所有登录状态，然后需要重新扫码。继续？")) return;
+                  setBusy(true);
+                  setErr(null);
+                  setMsg(null);
+                  try {
+                    const { invoke } = await import("@tauri-apps/api/core");
+                    await invoke("reset_pan_login");
+                    setAlive(false);
+                    setBound(null);
+                    clearPanCookie(provider);
+                    setMsg("已清空登录态。点上面的「打开登录窗口」重新扫码即可换号。");
+                  } catch (e) {
+                    setErr(typeof e === "string" ? e : e instanceof Error ? e.message : "重置失败");
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                退出并换号（清空登录态）
+              </button>
+
               <p className="pan-hint">
                 登录窗口**不要关**：它是唯一能带上 httpOnly 登录态的容器，转存和取链都在里面完成。
                 关掉也能重新打开，登录状态会保留。
