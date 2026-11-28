@@ -99,9 +99,13 @@ export function ShareBrowse({ url }: { url: string }) {
       setRow(f.fid, { phase: "link" });
       await panWebDirect(shareId, stoken, f);
 
-      const d = await waitPanDirect(75_000);
+      const d = await waitPanDirect(90_000);
       if (!d) {
-        setRow(f.fid, { phase: "idle", err: "没等到夸克返回直链（看网盘窗口左下角的红字）" });
+        setRow(f.fid, { phase: "idle", err: "等太久没结果（网盘窗口可能没加载完）" });
+        return;
+      }
+      if (d.err) {
+        setRow(f.fid, { phase: "idle", err: d.err });
         return;
       }
 

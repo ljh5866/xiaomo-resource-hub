@@ -104,16 +104,18 @@ export async function panWebDirect(
   });
 }
 
-/** 轮询页面回传的直链 */
+/** 轮询页面回传的结果：成功给 url，失败给 err */
 export async function waitPanDirect(
-  timeoutMs = 60_000,
-): Promise<{ url: string; name: string; fid: string } | null> {
+  timeoutMs = 90_000,
+): Promise<{ url: string; name: string; fid: string; err: string } | null> {
   const { invoke } = await import("@tauri-apps/api/core");
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
     await new Promise((r) => setTimeout(r, 900));
-    const r = await invoke<{ url: string; name: string; fid: string } | null>("take_pan_direct");
-    if (r?.url) return r;
+    const r = await invoke<{ url: string; name: string; fid: string; err: string } | null>(
+      "take_pan_direct",
+    );
+    if (r && (r.url || r.err)) return r;
   }
   return null;
 }

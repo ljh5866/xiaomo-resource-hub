@@ -20,6 +20,8 @@ use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 static PICKED: Mutex<Option<String>> = Mutex::new(None);
 /// 直链回传：(url, file_name, 转存后的 fid —— 用来下载完清理)
 static DL: Mutex<Option<(String, String, String)>> = Mutex::new(None);
+/// 页面里执行失败的原因
+static DL_ERR: Mutex<Option<String>> = Mutex::new(None);
 static PORT: OnceLock<u16> = OnceLock::new();
 
 #[derive(Serialize)]
@@ -30,10 +32,13 @@ pub struct PickedCookie {
 
 #[derive(Serialize)]
 pub struct DirectResult {
+    /// 成功时给直链
     pub url: String,
     pub name: String,
     /// 转存到用户网盘后的文件 id，下载完成后用它清理
     pub fid: String,
+    /// 失败时给原因（页面里抛的错）
+    pub err: String,
 }
 
 fn ensure_server() -> u16 {
@@ -63,8 +68,14 @@ fn ensure_server() -> u16 {
 
                 let head = String::from_utf8_lossy(&buf[..total.min(buf.len())]).to_string();
                 if let Some(line) = head.lines().next() {
-                    // GET /d?u=...&n=...&f=...  → 直链
-                    if line.contains("GET /d?") {
+                    // GET /e?m=<错误>  → 页面里执行失败
+                    if line.contains("GET /e?") {
+                        if let Some(m) = query_param(line, "m") {
+                            if let Ok(mut slot) = DL_ERR.lock() {
+                                *slot = Some(m);
+                            }
+                        }
+                    } else if line.contains("GET /d?") {
                         let u = query_param(line, "u");
                         let n = query_param(line, "n");
                         let f = query_param(line, "f").unwrap_or_default();
@@ -146,9 +157,24 @@ pub fn take_pan_cookie() -> Option<PickedCookie> {
 
 #[tauri::command]
 pub fn take_pan_direct() -> Option<DirectResult> {
+    if let Ok(mut e) = DL_ERR.lock() {
+        if let Some(msg) = e.take() {
+            return Some(DirectResult {
+                url: String::new(),
+                name: String::new(),
+                fid: String::new(),
+                err: msg,
+            });
+        }
+    }
     let mut slot = DL.lock().ok()?;
     let (url, name, fid) = slot.take()?;
-    Some(DirectResult { url, name, fid })
+    Some(DirectResult {
+        url,
+        name,
+        fid,
+        err: String::new(),
+    })
 }
 
 /// 下载完成后清理转存文件（在页面里删，需要登录态）
@@ -218,7 +244,7 @@ pub async fn open_pan_login(app: tauri::AppHandle, url: String, title: String) -
         .inner_size(520.0, 780.0)
         .min_inner_size(420.0, 600.0)
         .on_page_load(move |webview, _payload| {
-            let _ = webview.eval(&build_overlay(port));
+            let _ = webview.eval(&build_injector(port));
         })
         .build()
         .map_err(|e| format!("打不开窗口：{e}"))?;
@@ -242,7 +268,11 @@ pub fn close_pan_login(app: tauri::AppHandle) {
     }
 }
 
-/// 在网盘窗口的页面里执行「转存 → 轮询任务 → 取直链」，结果导航回本地
+/// 在网盘窗口里执行「转存 → 轮询 → 取直链」。
+///
+/// 做法：把任务参数 base64 后放进 URL hash，**导航**过去让页面加载完自己执行。
+/// 不用 eval —— 之前 `navigate + sleep(3.2s) + eval` 的写法，页面没加载完就把脚本打在了旧文档上，
+/// 导航完成后脚本直接消失，表现就是「等不到直链」。
 #[tauri::command]
 pub async fn pan_web_direct(
     app: tauri::AppHandle,
@@ -252,7 +282,6 @@ pub async fn pan_web_direct(
     fid_token: String,
     file_name: String,
 ) -> Result<(), String> {
-    let port = ensure_server();
     let win = app
         .get_webview_window("pan-login")
         .ok_or_else(|| "网盘窗口已关闭 —— 请先在侧栏「网盘登录」重新打开并登录".to_string())?;
@@ -260,53 +289,96 @@ pub async fn pan_web_direct(
     if let Ok(mut slot) = DL.lock() {
         *slot = None;
     }
-
-    // 关键：页面必须停在网盘域上，否则 fetch 过去会被 CORS 拦（origin 是 127.0.0.1）
-    let cur = win.url().map(|u| u.to_string()).unwrap_or_default();
-    if !cur.contains("quark.cn") {
-        let target: tauri::Url = "https://pan.quark.cn/"
-            .parse()
-            .map_err(|_| "地址解析失败".to_string())?;
-        win.navigate(target).map_err(|e| format!("导航失败：{e}"))?;
-        // 等页面加载完（on_page_load 会重新注入浮层）
-        tokio::time::sleep(std::time::Duration::from_millis(3200)).await;
+    if let Ok(mut e) = DL_ERR.lock() {
+        *e = None;
     }
 
-    let _ = win.show();
+    let cfg = serde_json::json!({
+        "s": share_id,
+        "t": stoken,
+        "f": fid,
+        "k": fid_token,
+        "n": file_name,
+    });
+    let payload = b64(&cfg.to_string());
 
-    let js = build_download_js(port, &share_id, &stoken, &fid, &fid_token, &file_name);
-    win.eval(&js).map_err(|e| format!("注入失败：{e}"))?;
+    // 每次都重新导航：既保证页面在夸克域（fetch 不会被 CORS 拦），也让脚本在加载完后执行
+    let url = format!("https://pan.quark.cn/#xm-dl={payload}");
+    let target: tauri::Url = url.parse().map_err(|_| "地址解析失败".to_string())?;
+
+    let _ = win.show();
+    win.navigate(target)
+        .map_err(|e| format!("导航失败：{e}"))?;
     Ok(())
 }
 
-/// 页面里执行的脚本：转存 → 轮询 → 取直链 → 导航回本地端口
-fn build_download_js(
-    port: u16,
-    share_id: &str,
-    stoken: &str,
-    fid: &str,
-    fid_token: &str,
-    file_name: &str,
-) -> String {
-    // 用 serde_json 做字符串转义，避免文件名里的引号把 JS 弄坏
-    let j = |s: &str| serde_json::to_string(s).unwrap_or_else(|_| "\"\"".into());
+fn b64(s: &str) -> String {
+    use base64::Engine;
+    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(s.as_bytes())
+}
 
+/// 页面里执行的脚本：转存 → 轮询 → 取直链 → 导航回本地端口
+
+/// 注入到页面里的脚本，两个职责：
+///  ① 右上角浮层「完成登录」→ 把 cookie 导航回本地
+///  ② 页面 hash 带 `#xm-dl=<base64>` 时，执行「转存 → 轮询 → 取直链」→ 导航回本地
+fn build_injector(port: u16) -> String {
     format!(
-        r#"(async () => {{
-  const API = 'https://drive-pc.quark.cn';
-  const Q = 'pr=ucpro&fr=pc&uc_param_str=';
-  const done = (u, n, f) => {{
-    location.href = 'http://127.0.0.1:{port}/d?u=' + encodeURIComponent(u) +
-      '&n=' + encodeURIComponent(n) + '&f=' + encodeURIComponent(f || '');
-  }};
-  const fail = (m) => {{
-    const d = document.createElement('div');
-    d.textContent = '下载失败：' + m;
-    d.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:2147483647;background:#c0392b;color:#fff;padding:8px 12px;border-radius:8px;font:12px system-ui';
-    document.body.appendChild(d);
-    setTimeout(() => d.remove(), 8000);
-  }};
+        r#"
+(() => {{
+  const PORT = {port};
+
+  // ── ① 登录浮层 ──
+  if (!document.getElementById('xm-pan-finish')) {{
+    const bar = document.createElement('div');
+    bar.id = 'xm-pan-finish';
+    bar.style.cssText = [
+      'position:fixed','top:10px','right:10px','z-index:2147483647',
+      'background:#111','color:#fff','border-radius:8px','padding:8px 12px',
+      'font:13px/1.4 system-ui,sans-serif','box-shadow:0 4px 18px rgba(0,0,0,.35)',
+      'display:flex','gap:8px','align-items:center'
+    ].join(';');
+    const hint = document.createElement('span');
+    hint.textContent = '登录后点这里';
+    hint.style.cssText = 'opacity:.75';
+    const ok = document.createElement('button');
+    ok.textContent = '完成登录';
+    ok.style.cssText = 'border:0;border-radius:6px;padding:6px 12px;background:#1a56db;color:#fff;font:inherit;cursor:pointer';
+    ok.onclick = () => {{
+      const cookie = document.cookie || '';
+      const n = cookie.split(';').filter(Boolean).length;
+      ok.textContent = '提交中…';
+      location.href = 'http://127.0.0.1:' + PORT + '/c?d=' + encodeURIComponent(location.host + '\n' + cookie);
+      setTimeout(() => {{ ok.textContent = '已提交 ' + n + ' 项'; ok.style.background = '#2f8f5b'; }}, 300);
+    }};
+    bar.appendChild(hint);
+    bar.appendChild(ok);
+    document.documentElement.appendChild(bar);
+  }}
+
+  // ── ② 下载任务（页面加载完才执行，不依赖注入时机）──
+  const m = (location.hash || '').match(/xm-dl=([A-Za-z0-9_-]+)/);
+  if (!m) return;
+
+  let cfg;
   try {{
+    let b = m[1].replace(/-/g, '+').replace(/_/g, '/');
+    while (b.length % 4) b += '=';
+    cfg = JSON.parse(atob(b));
+  }} catch (e) {{
+    location.href = 'http://127.0.0.1:' + PORT + '/e?m=' + encodeURIComponent('参数解析失败');
+    return;
+  }}
+  // 清掉 hash，避免刷新重复执行
+  try {{ history.replaceState(null, '', location.pathname + location.search); }} catch (e) {{}}
+
+  const fail = (msg) => {{
+    location.href = 'http://127.0.0.1:' + PORT + '/e?m=' + encodeURIComponent(String(msg).slice(0, 300));
+  }};
+
+  (async () => {{
+    const API = 'https://drive-pc.quark.cn';
+    const Q = 'pr=ucpro&fr=pc&uc_param_str=';
     const jpost = async (path, extra, body) => {{
       const r = await fetch(API + path + '?' + Q + (extra || ''), {{
         method: 'POST',
@@ -314,94 +386,62 @@ fn build_download_js(
         credentials: 'include',
         body: JSON.stringify(body),
       }});
-      return r.json();
+      const t = await r.text();
+      try {{ return JSON.parse(t); }} catch (e) {{ throw new Error('接口返回非 JSON: ' + t.slice(0, 80)); }}
     }};
     const jget = async (path, extra) => {{
       const r = await fetch(API + path + '?' + Q + (extra || ''), {{ credentials: 'include' }});
       return r.json();
     }};
 
-    // ① 转存
-    const sv = await jpost('/1/clouddrive/share/sharepage/save', '', {{
-      fid_list: [{fid_j}],
-      fid_token_list: [{tok_j}],
-      to_pdir_fid: '0',
-      pwd_id: {sid_j},
-      stoken: {stk_j},
-      pdir_fid: '0',
-      scene: 'link',
-    }});
-    if (!sv || sv.status !== 200 || !sv.data) throw new Error('转存：' + (sv && sv.message) + ' [' + (sv && sv.code) + ']');
-    const taskId = sv.data.task_id;
-
-    // ② 轮询任务
-    let savedFid = null;
-    for (let i = 0; i < 20; i++) {{
-      await new Promise((r) => setTimeout(r, 500));
-      const t = await jget('/1/clouddrive/task', '&task_id=' + encodeURIComponent(taskId) + '&retry_index=' + i);
-      if (t && t.status === 200 && t.data && Number(t.data.status) === 2) {{
-        const ids = (t.data.save_as && t.data.save_as.save_as_top_fids) || [];
-        savedFid = ids[0];
-        break;
+    try {{
+      // ① 转存
+      const sv = await jpost('/1/clouddrive/share/sharepage/save', '', {{
+        fid_list: [cfg.f],
+        fid_token_list: [cfg.k],
+        to_pdir_fid: '0',
+        pwd_id: cfg.s,
+        stoken: cfg.t,
+        pdir_fid: '0',
+        scene: 'link',
+      }});
+      if (!sv || sv.status !== 200 || !sv.data) {{
+        throw new Error('转存失败：' + (sv && sv.message) + ' [' + (sv && sv.code) + ']');
       }}
+      const taskId = sv.data.task_id;
+
+      // ② 轮询任务
+      let savedFid = null;
+      for (let i = 0; i < 20; i++) {{
+        await new Promise((r) => setTimeout(r, 500));
+        const t = await jget('/1/clouddrive/task', '&task_id=' + encodeURIComponent(taskId) + '&retry_index=' + i);
+        if (t && t.status === 200 && t.data && Number(t.data.status) === 2) {{
+          const ids = (t.data.save_as && t.data.save_as.save_as_top_fids) || [];
+          savedFid = ids[0];
+          break;
+        }}
+      }}
+      if (!savedFid) throw new Error('转存超时（夸克排队中）');
+
+      // ③ 取直链
+      const dl = await jpost('/1/clouddrive/file/download', '&sys=win32&ve=3.23.2', {{ fids: [savedFid] }});
+      if (!dl || dl.status !== 200) {{
+        throw new Error('取链失败：' + (dl && dl.message) + ' [' + (dl && dl.code) + ']');
+      }}
+      const rows = Array.isArray(dl.data) ? dl.data : (dl.data && dl.data.list) || [];
+      const row = rows[0];
+      if (!row || !row.download_url) throw new Error('夸克没返回下载地址（可能被限速/风控）');
+
+      location.href = 'http://127.0.0.1:' + PORT + '/d'
+        + '?u=' + encodeURIComponent(row.download_url)
+        + '&n=' + encodeURIComponent(row.file_name || cfg.n)
+        + '&f=' + encodeURIComponent(savedFid);
+    }} catch (e) {{
+      fail(e && e.message ? e.message : e);
     }}
-    if (!savedFid) throw new Error('转存超时（夸克排队中）');
-
-    // ③ 取直链
-    const dl = await jpost('/1/clouddrive/file/download', '&sys=win32&ve=3.23.2', {{ fids: [savedFid] }});
-    if (!dl || dl.status !== 200) throw new Error('取链：' + (dl && dl.message) + ' [' + (dl && dl.code) + ']');
-    const rows = Array.isArray(dl.data) ? dl.data : (dl.data && dl.data.list) || [];
-    const row = rows[0];
-    if (!row || !row.download_url) throw new Error('夸克没返回下载地址（可能被限速/风控）');
-
-    done(row.download_url, row.file_name || {name_j}, savedFid);
-  }} catch (e) {{
-    fail(String(e && e.message ? e.message : e));
-  }}
-}})();"#,
-        port = port,
-        fid_j = j(fid),
-        tok_j = j(fid_token),
-        sid_j = j(share_id),
-        stk_j = j(stoken),
-        name_j = j(file_name),
-    )
-}
-
-/// 注入到页面里的浮层：点按钮 → 把 cookie 导航回本地端口
-fn build_overlay(port: u16) -> String {
-    format!(
-        r#"
-(() => {{
-  if (document.getElementById('xm-pan-finish')) return;
-  const bar = document.createElement('div');
-  bar.id = 'xm-pan-finish';
-  bar.style.cssText = [
-    'position:fixed','top:10px','right:10px','z-index:2147483647',
-    'background:#111','color:#fff','border-radius:8px','padding:8px 12px',
-    'font:13px/1.4 system-ui,sans-serif','box-shadow:0 4px 18px rgba(0,0,0,.35)',
-    'display:flex','gap:8px','align-items:center'
-  ].join(';');
-  const hint = document.createElement('span');
-  hint.textContent = '登录后点这里';
-  hint.style.cssText = 'opacity:.75';
-  const ok = document.createElement('button');
-  ok.textContent = '完成登录';
-  ok.style.cssText = 'border:0;border-radius:6px;padding:6px 12px;background:#1a56db;color:#fff;font:inherit;cursor:pointer';
-  ok.onclick = () => {{
-    const cookie = document.cookie || '';
-    const n = cookie.split(';').filter(Boolean).length;
-    ok.textContent = '读取中…';
-    location.href = 'http://127.0.0.1:{port}/c?d=' + encodeURIComponent(location.host + '\n' + cookie);
-    setTimeout(() => {{
-      ok.textContent = '已提交 ' + n + ' 项';
-      ok.style.background = '#2f8f5b';
-    }}, 300);
-  }};
-  bar.appendChild(hint);
-  bar.appendChild(ok);
-  document.documentElement.appendChild(bar);
+  }})();
 }})();
-"#
+"#,
+        port = port
     )
 }

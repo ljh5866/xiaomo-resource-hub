@@ -5359,6 +5359,7 @@ dependencies = [
 name = "xiaomo-desktop"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "futures-util",
  "reqwest 0.12.28",
  "rusqlite",
