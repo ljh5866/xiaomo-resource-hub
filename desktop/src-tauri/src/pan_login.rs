@@ -44,21 +44,14 @@ fn ensure_server() -> u16 {
 
                 let mut buf = vec![0u8; 16384];
                 let mut total = 0usize;
-                // 一次 read 可能读不满 body，循环到读不出为止
+                // 导航过来的是 GET，读到一个完整请求头就够了
                 loop {
                     match s.read(&mut buf[total..]) {
                         Ok(0) => break,
                         Ok(n) => {
                             total += n;
-                            if total >= buf.len() {
+                            if total >= buf.len() || find_sub(&buf[..total], b"\r\n\r\n").is_some() {
                                 break;
-                            }
-                            if let Some(idx) = find_sub(&buf[..total], b"\r\n\r\n") {
-                                let head = String::from_utf8_lossy(&buf[..idx]).to_string();
-                                let body_len = content_length(&head).unwrap_or(0);
-                                if total >= idx + 4 + body_len {
-                                    break;
-                                }
                             }
                         }
                         Err(_) => break,
@@ -66,17 +59,24 @@ fn ensure_server() -> u16 {
                 }
 
                 if let Some(idx) = find_sub(&buf[..total], b"\r\n\r\n") {
-                    let body = String::from_utf8_lossy(&buf[idx + 4..total]).to_string();
-                    if let Some((host, cookie)) = body.split_once('\n') {
-                        if !cookie.trim().is_empty() {
-                            store(host.trim(), cookie.trim());
+                    let head = String::from_utf8_lossy(&buf[..idx]).to_string();
+                    // 取第一行：GET /c?d=<urlencoded> HTTP/1.1
+                    if let Some(line) = head.lines().next() {
+                        if let Some(q) = line.split("?d=").nth(1) {
+                            let raw = q.split(' ').next().unwrap_or("");
+                            let decoded = pct_decode(raw);
+                            if let Some((host, cookie)) = decoded.split_once('\n') {
+                                if !cookie.trim().is_empty() {
+                                    store(host.trim(), cookie.trim());
+                                }
+                            }
                         }
                     }
                 }
 
                 let _ = s.write_all(
-                    b"HTTP/1.1 204 No Content\r\nAccess-Control-Allow-Origin: *\r\n\
-                      Access-Control-Allow-Headers: *\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                    b"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n\
+                      Connection: close\r\nContent-Length: 0\r\n\r\n",
                 );
             }
         });
@@ -89,14 +89,23 @@ fn find_sub(hay: &[u8], needle: &[u8]) -> Option<usize> {
     hay.windows(needle.len()).position(|w| w == needle)
 }
 
-fn content_length(head: &str) -> Option<usize> {
-    for line in head.lines() {
-        let l = line.to_ascii_lowercase();
-        if let Some(rest) = l.strip_prefix("content-length:") {
-            return rest.trim().parse().ok();
+/// 极简 percent-decode（只要够解 cookie 里的 %XX 和 +）
+fn pct_decode(s: &str) -> String {
+    let b = s.as_bytes();
+    let mut out: Vec<u8> = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] == b'%' && i + 2 < b.len() {
+            if let Ok(v) = u8::from_str_radix(&s[i + 1..i + 3], 16) {
+                out.push(v);
+                i += 3;
+                continue;
+            }
         }
+        out.push(if b[i] == b'+' { b' ' } else { b[i] });
+        i += 1;
     }
-    None
+    String::from_utf8_lossy(&out).to_string()
 }
 
 /// 前端轮询取结果；没有就返回 None
@@ -168,23 +177,17 @@ fn build_overlay(port: u16) -> String {
   const ok = document.createElement('button');
   ok.textContent = '完成登录';
   ok.style.cssText = 'border:0;border-radius:6px;padding:6px 12px;background:#1a56db;color:#fff;font:inherit;cursor:pointer';
-  ok.onclick = async () => {{
+  ok.onclick = () => {{
+    // 只能走「导航」：https 页面 fetch http://127.0.0.1 会被混合内容拦掉（实测）
     const cookie = document.cookie || '';
     const n = cookie.split(';').filter(Boolean).length;
-    try {{
-      await fetch('http://127.0.0.1:{port}/c', {{
-        method: 'POST',
-        mode: 'no-cors',
-        headers: {{ 'content-type': 'text/plain' }},
-        body: location.host + '\n' + cookie,
-      }});
-      ok.textContent = '已读取 ' + n + ' 项';
+    ok.textContent = '读取中…';
+    const payload = location.host + '\n' + cookie;
+    location.href = 'http://127.0.0.1:{port}/c?d=' + encodeURIComponent(payload);
+    setTimeout(() => {{
+      ok.textContent = '已提交 ' + n + ' 项，请回到主窗口';
       ok.style.background = '#2f8f5b';
-    }} catch (e) {{
-      ok.textContent = '失败：' + (e && e.message ? e.message : '网络');
-      ok.style.background = '#c0392b';
-      console.error(e);
-    }}
+    }}, 300);
   }};
   bar.appendChild(hint);
   bar.appendChild(ok);
