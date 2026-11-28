@@ -18,8 +18,8 @@ use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
 /// 登录回传：`host\u{1}cookie`
 static PICKED: Mutex<Option<String>> = Mutex::new(None);
-/// 直链回传：(url, file_name)
-static DL: Mutex<Option<(String, String)>> = Mutex::new(None);
+/// 直链回传：(url, file_name, 转存后的 fid —— 用来下载完清理)
+static DL: Mutex<Option<(String, String, String)>> = Mutex::new(None);
 static PORT: OnceLock<u16> = OnceLock::new();
 
 #[derive(Serialize)]
@@ -32,6 +32,8 @@ pub struct PickedCookie {
 pub struct DirectResult {
     pub url: String,
     pub name: String,
+    /// 转存到用户网盘后的文件 id，下载完成后用它清理
+    pub fid: String,
 }
 
 fn ensure_server() -> u16 {
@@ -61,13 +63,14 @@ fn ensure_server() -> u16 {
 
                 let head = String::from_utf8_lossy(&buf[..total.min(buf.len())]).to_string();
                 if let Some(line) = head.lines().next() {
-                    // GET /d?u=...&n=...  → 直链
+                    // GET /d?u=...&n=...&f=...  → 直链
                     if line.contains("GET /d?") {
                         let u = query_param(line, "u");
                         let n = query_param(line, "n");
+                        let f = query_param(line, "f").unwrap_or_default();
                         if let (Some(u), Some(n)) = (u, n) {
                             if let Ok(mut slot) = DL.lock() {
-                                *slot = Some((u, n));
+                                *slot = Some((u, n, f));
                             }
                         }
                     } else if line.contains("GET /c?") {
@@ -144,8 +147,46 @@ pub fn take_pan_cookie() -> Option<PickedCookie> {
 #[tauri::command]
 pub fn take_pan_direct() -> Option<DirectResult> {
     let mut slot = DL.lock().ok()?;
-    let (url, name) = slot.take()?;
-    Some(DirectResult { url, name })
+    let (url, name, fid) = slot.take()?;
+    Some(DirectResult { url, name, fid })
+}
+
+/// 下载完成后清理转存文件（在页面里删，需要登录态）
+#[tauri::command]
+pub async fn pan_web_delete(app: tauri::AppHandle, fids: Vec<String>) -> Result<(), String> {
+    if fids.is_empty() {
+        return Ok(());
+    }
+    let win = app
+        .get_webview_window("pan-login")
+        .ok_or_else(|| "网盘窗口已关闭，无法清理转存文件".to_string())?;
+
+    let list = fids
+        .iter()
+        .map(|f| serde_json::to_string(f).unwrap_or_else(|_| "\"\"".into()))
+        .collect::<Vec<_>>()
+        .join(",");
+
+    let js = format!(
+        r#"(async () => {{
+  try {{
+    const r = await fetch('https://drive-pc.quark.cn/1/clouddrive/file/delete?pr=ucpro&fr=pc&uc_param_str=', {{
+      method: 'POST',
+      headers: {{ 'content-type': 'application/json' }},
+      credentials: 'include',
+      body: JSON.stringify({{ action_type: 2, filelist: [{list}], exclude_fids: [] }}),
+    }});
+    const j = await r.json();
+    console.log('[xm] 清理转存:', j && j.status, j && j.message);
+  }} catch (e) {{
+    console.warn('[xm] 清理失败', e);
+  }}
+}})();"#,
+        list = list
+    );
+
+    win.eval(&js).map_err(|e| format!("注入失败：{e}"))?;
+    Ok(())
 }
 
 /// 登录窗口是否还活着（活着的窗口才有登录态）
@@ -240,8 +281,9 @@ fn build_download_js(
         r#"(async () => {{
   const API = 'https://drive-pc.quark.cn';
   const Q = 'pr=ucpro&fr=pc&uc_param_str=';
-  const done = (u, n) => {{
-    location.href = 'http://127.0.0.1:{port}/d?u=' + encodeURIComponent(u) + '&n=' + encodeURIComponent(n);
+  const done = (u, n, f) => {{
+    location.href = 'http://127.0.0.1:{port}/d?u=' + encodeURIComponent(u) +
+      '&n=' + encodeURIComponent(n) + '&f=' + encodeURIComponent(f || '');
   }};
   const fail = (m) => {{
     const d = document.createElement('div');
@@ -298,7 +340,7 @@ fn build_download_js(
     const row = rows[0];
     if (!row || !row.download_url) throw new Error('夸克没返回下载地址（可能被限速/风控）');
 
-    done(row.download_url, row.file_name || {name_j});
+    done(row.download_url, row.file_name || {name_j}, savedFid);
   }} catch (e) {{
     fail(String(e && e.message ? e.message : e));
   }}

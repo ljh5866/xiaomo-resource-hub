@@ -55,6 +55,7 @@ pub fn run() {
             pan_login::take_pan_direct,
             pan_login::pan_window_alive,
             pan_login::pan_web_direct,
+            pan_login::pan_web_delete,
             pan_login::hide_pan_login,
             pan_login::close_pan_login,
             quark::quark_share_token,

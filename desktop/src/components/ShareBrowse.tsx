@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   fmtSize,
   onDownloadProgress,
+  panWebDelete,
   panWebDirect,
   quarkDownload,
   resolveQuarkShare,
@@ -98,6 +99,10 @@ export function ShareBrowse({ url }: { url: string }) {
 
       setRow(f.fid, { phase: "down", total: f.size });
       const path = await quarkDownload(d.url, d.name || f.name);
+
+      // 清理转存到用户网盘的那份（下载完才删；失败不影响结果）
+      if (d.fid) void panWebDelete([d.fid]);
+
       setRow(f.fid, { phase: "idle", done: path });
     } catch (e) {
       setRow(f.fid, {

@@ -107,15 +107,23 @@ export async function panWebDirect(
 /** 轮询页面回传的直链 */
 export async function waitPanDirect(
   timeoutMs = 60_000,
-): Promise<{ url: string; name: string } | null> {
+): Promise<{ url: string; name: string; fid: string } | null> {
   const { invoke } = await import("@tauri-apps/api/core");
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
     await new Promise((r) => setTimeout(r, 900));
-    const r = await invoke<{ url: string; name: string } | null>("take_pan_direct");
+    const r = await invoke<{ url: string; name: string; fid: string } | null>("take_pan_direct");
     if (r?.url) return r;
   }
   return null;
+}
+
+/** 下载完成后清理转存文件（在网盘页面里删） */
+export async function panWebDelete(fids: string[]): Promise<void> {
+  const clean = fids.filter(Boolean);
+  if (!clean.length) return;
+  const { invoke } = await import("@tauri-apps/api/core");
+  await invoke("pan_web_delete", { fids: clean }).catch(() => {});
 }
 
 /** 直链 → 分片并发下载到本地下载目录，返回保存路径 */
