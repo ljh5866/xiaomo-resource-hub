@@ -421,18 +421,21 @@ fn build_task_js(port: u16, task: &Task) -> String {
     }};
 
     try {{
-      // ── 路线 A：直接从分享取链，不转存 ──
-      // 夸克 Web 端下分享文件走的就是这个接口，而且不会在用户网盘留残留。
+      // ── 路线 A：免转存，直接把分享凭证交给 file/download（云析同款做法）──
+      // body 与游客取链同构：fids / fids_token / pwd_id / stoken + 两个空占位。
+      // 用账号态 Cookie（页面里 fetch 自带）→ 不受「游客 ≈50MB」限制，也不在网盘留临时文件。
       try {{
-        const direct = await jpost('/1/clouddrive/share/sharepage/download', '', {{
-          fid_list: [cfg.f],
-          fid_token_list: [cfg.k],
+        const direct = await jpost('/1/clouddrive/file/download', '&sys=win32&ve=3.23.2', {{
+          fids: [cfg.f],
+          fids_token: [cfg.k],
           pwd_id: cfg.s,
           stoken: cfg.t,
+          speedup_session: '',
+          token: '',
         }});
-        if (direct && direct.status === 200 && direct.data) {{
-          const rows = Array.isArray(direct.data) ? direct.data : (direct.data.list || []);
-          const row = rows[0];
+        if (direct && direct.status === 200) {{
+          const arr = Array.isArray(direct.data) ? direct.data : (direct.data && direct.data.list) || [];
+          const row = arr[0];
           if (row && row.download_url) {{
             location.href = 'http://127.0.0.1:' + PORT + '/d'
               + '?u=' + encodeURIComponent(row.download_url)
