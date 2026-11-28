@@ -126,14 +126,31 @@ export async function panWebDelete(fids: string[]): Promise<void> {
   await invoke("pan_web_delete", { fids: clean }).catch(() => {});
 }
 
+const CONN_KEY = "xm.dl.conns";
+
+/** 连接数（夸克按连接限速，越大越快；太多会被风控） */
+export function getConns(): number {
+  const v = Number(localStorage.getItem(CONN_KEY) ?? "");
+  return Number.isFinite(v) && v >= 1 ? Math.min(128, v) : 16;
+}
+
+export function setConns(n: number) {
+  localStorage.setItem(CONN_KEY, String(Math.max(1, Math.min(128, Math.floor(n)))));
+}
+
 /** 直链 → 分片并发下载到本地下载目录，返回保存路径 */
 export async function quarkDownload(
   url: string,
   fileName: string,
-  conns = 8,
+  conns?: number,
 ): Promise<string> {
   const cookie = getPanCookie("quark") ?? "";
-  return invokeCmd<string>("pan_download_chunked", { url, fileName, cookie, conns });
+  return invokeCmd<string>("pan_download_chunked", {
+    url,
+    fileName,
+    cookie,
+    conns: conns ?? getConns(),
+  });
 }
 
 export type DlTick = { got: number; total: number; done: number; chunks: number };

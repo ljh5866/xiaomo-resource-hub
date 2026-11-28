@@ -3,11 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import {
   fmtSize,
+  getConns,
   onDownloadProgress,
   panWebDelete,
   panWebDirect,
   quarkDownload,
   resolveQuarkShare,
+  setConns,
   waitPanDirect,
   type PanFile,
   type ShareListing,
@@ -35,7 +37,12 @@ export function ShareBrowse({ url }: { url: string }) {
   const [stoken, setStoken] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<Record<string, RowState>>({});
+  const [conns, setConnsState] = useState(16);
   const unRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    setConnsState(getConns());
+  }, []);
 
   useEffect(() => {
     void onDownloadProgress((p) => {
@@ -136,7 +143,26 @@ export function ShareBrowse({ url }: { url: string }) {
   return (
     <div className="share-box">
       {listing?.title && <div className="share-title">{listing.title}</div>}
-      <div className="share-meta">共 {listing?.total ?? 0} 项</div>
+      <div className="share-meta">
+        <span>共 {listing?.total ?? 0} 项</span>
+        <label className="conns">
+          连接数
+          <select
+            value={String(conns)}
+            onChange={(e) => {
+              const n = Number(e.target.value);
+              setConns(n);
+              setConnsState(n);
+            }}
+          >
+            {[4, 8, 16, 32, 64].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
       <ul className="file-list">
         {(listing?.files ?? []).map((f) => {
           const r = rows[f.fid];

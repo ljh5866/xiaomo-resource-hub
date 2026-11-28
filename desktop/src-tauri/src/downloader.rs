@@ -20,8 +20,8 @@ use serde::Serialize;
 const UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
                   (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
-/// 单分片最小 1MB，避免切成几千个碎片
-const MIN_CHUNK: u64 = 1024 * 1024;
+/// 单分片最小 512KB —— 分片越小，同时干活的连接越多（夸克按连接限速）
+const MIN_CHUNK: u64 = 512 * 1024;
 
 #[derive(Serialize, Clone)]
 pub struct DlProgress {
@@ -231,9 +231,9 @@ pub async fn download(
         return Err("文件大小为 0".to_string());
     }
 
-    // 分片数：连接数不超过 1MB 一片的上限，避免碎片过多
+    // 分片数：连接数不超过 512KB 一片的上限，避免碎片过多
     let max_by_size = (total / MIN_CHUNK).max(1);
-    let n = (conns.max(1) as u64).min(max_by_size).min(64);
+    let n = (conns.max(1) as u64).min(max_by_size).min(128);
     let chunk_size = total / n + if total % n > 0 { 1 } else { 0 };
 
     let stem = dest.with_extension("");
