@@ -104,15 +104,6 @@ cd /var/www/xiaomo && sudo bash deploy/deploy.sh 2>&1 | tee /tmp/deploy.log | ta
    `@'...'@ | Out-File -Encoding UTF8 x.mjs` 写脚本再跑。
    **改中文文件绝不能用 PowerShell 的 `ReadAllText/WriteAllText`**（会写坏 UTF-8，实测两次），
    只能用 `edit` / `write` 工具。
-10. 仓库里新增独立子工程（`desktop/`、`extension/`）后，**主工程 `tsconfig.json` 必须显式 exclude**
-    它们：否则 `next build` 的 tsc 阶段会去解析子工程的依赖，服务器没装那些依赖 → 构建直接失败
-    （2026-11-27 实际踩过，`desktop/src/components/TitleBar.tsx` 找不到 `@tauri-apps/api`）。
-11. Tauri 自绘标题栏：`data-tauri-drag-region` 会**吃掉该元素内所有 mousedown**（用于拖窗口）。
-    只能加在品牌区和空白块上，按钮所在的容器绝不能带这个属性；另需在
-    `capabilities/default.json` 显式给 `core:window:allow-start-dragging` 等窗口权限。
-12. Tauri/Electron 类桌面端调站点 API 是**跨站请求**：`SameSite=Lax` 的 session cookie 带不上，
-    必须另发 Bearer token。预检（OPTIONS）要回 2xx 且带 `Access-Control-Allow-Headers:
-    content-type, authorization`，漏了这条登录会被浏览器直接拦掉。
 
 ## 8. 协作偏好
 
