@@ -182,7 +182,11 @@ export function ShareBrowse({ url }: { url: string }) {
                 </button>
               )}
 
-              {r?.err && <span className="file-err">{r.err}</span>}
+              {r?.err && (
+                <span className="file-err" title={r.err}>
+                  {r.err}
+                </span>
+              )}
             </li>
           );
         })}

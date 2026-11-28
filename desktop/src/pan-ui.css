@@ -241,10 +241,11 @@
 .file-err {
   font-size: 11px;
   color: var(--danger);
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  flex: 1 1 100%;
+  white-space: normal;
+  word-break: break-all;
+  line-height: 1.5;
+  padding-top: 4px;
 }
 
 /* 连接数选择 */
