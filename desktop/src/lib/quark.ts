@@ -46,26 +46,23 @@ const invokeCmd = async <T>(cmd: string, args: Record<string, unknown>): Promise
   return invoke<T>(cmd, args);
 };
 
-/** 拿到 stoken（顺带验证 cookie 是否有效） */
+/** 拿到 stoken（分享 token 匿名可用，不需要登录态） */
 export async function quarkToken(shareId: string, passcode: string): Promise<string> {
-  const cookie = getPanCookie("quark") ?? "";
-  if (!cookie) throw new Error("还没登录夸克网盘，先在侧栏「网盘登录」里扫码");
   if (!inTauri()) throw new Error("解析只能在桌面端里用");
-  return invokeCmd<string>("quark_share_token", { shareId, passcode, cookie });
+  return invokeCmd<string>("quark_share_token", { shareId, passcode, cookie: "" });
 }
 
-/** 列目录 */
+/** 列目录（同样匿名可用） */
 export async function quarkList(
   shareId: string,
   stoken: string,
   pdirFid = "0",
 ): Promise<ShareListing> {
-  const cookie = getPanCookie("quark") ?? "";
   return invokeCmd<ShareListing>("quark_share_list", {
     shareId,
     stoken,
     pdirFid,
-    cookie,
+    cookie: "",
   });
 }
 
