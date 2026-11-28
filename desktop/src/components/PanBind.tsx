@@ -169,25 +169,31 @@ export function PanBind({ onClose }: { onClose: () => void }) {
                 className="btn btn-ghost scan-btn"
                 style={{ marginTop: 8, color: "var(--danger)" }}
                 onClick={async () => {
-                  if (!confirm("会关掉登录窗口并清空其中所有登录状态，然后需要重新扫码。继续？")) return;
                   setBusy(true);
                   setErr(null);
                   setMsg(null);
+                  const { invoke } = await import("@tauri-apps/api/core");
+                  // 尽力清一次 cookie（文件可能被 WebView2 锁着，失败也不影响下面的手动退出）
+                  await invoke("reset_pan_login").catch(() => {});
+                  clearPanCookie(provider);
+                  setBound(null);
                   try {
-                    const { invoke } = await import("@tauri-apps/api/core");
-                    await invoke("reset_pan_login");
-                    setAlive(false);
-                    setBound(null);
-                    clearPanCookie(provider);
-                    setMsg("已清空登录态。点上面的「打开登录窗口」重新扫码即可换号。");
+                    // 重开一个干净窗口，让用户在里面自己退出当前账号
+                    await invoke("close_pan_login").catch(() => {});
+                    await new Promise((r) => setTimeout(r, 600));
+                    await openPanLogin(provider);
+                    setAlive(true);
+                    setMsg(
+                      "窗口已重开。在里面点**右上角头像 → 退出登录**，然后重新扫码换号。",
+                    );
                   } catch (e) {
-                    setErr(typeof e === "string" ? e : e instanceof Error ? e.message : "重置失败");
+                    setErr(typeof e === "string" ? e : e instanceof Error ? e.message : "操作失败");
                   } finally {
                     setBusy(false);
                   }
                 }}
               >
-                退出并换号（清空登录态）
+                换号：重开登录窗口
               </button>
 
               <p className="pan-hint">
